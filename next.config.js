@@ -1,4 +1,3 @@
-
 const nextConfig = {
   experimental: {
     serverActions: {
@@ -41,5 +40,4 @@ const nextConfig = {
     ],
   },
 };
-
-export default nextConfig;
+module.exports = nextConfig;
