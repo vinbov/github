@@ -11,19 +11,15 @@ export async function askGptSearch(prompt: string): Promise<string> {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-<<<<<<< HEAD
-      body: JSON.stringify({ prompts: [prompt] }), // payload corretto per tri_angle/gpt-search
-=======
-      body: JSON.stringify({ prompts: [prompt], country: "US" }),
->>>>>>> fe145183d542b25998d3ffce4b323e57d3c082ca
+      body: JSON.stringify({ prompts: [prompt] }),
     });
     console.log("[askGptSearch] fetch completata, status:", res.status);
     if (!res.ok) throw new Error("Errore chiamata Apify: " + res.status);
     const data = await res.json();
     console.log("[Apify API response]", data);
-    if (Array.isArray(data) && data[0]?.output) {
-      if (typeof data[0].output === "string" && data[0].output.trim() !== "") {
-        return data[0].output;
+    if (Array.isArray(data) && data[0]?.Response) {
+      if (typeof data[0].Response === "string" && data[0].Response.trim() !== "") {
+        return data[0].Response;
       }
     }
     // Fallback: risposta vuota o formato inatteso
