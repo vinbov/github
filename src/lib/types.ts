@@ -1,4 +1,3 @@
-
 import type { DataForSEOKeywordMetrics } from './dataforseo/types';
 
 // Tool 1: Keyword Comparator
@@ -85,7 +84,7 @@ export interface ApifyRawAdItem {
     page_profile_picture_url?: string;
   };
   url?: string; 
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ScrapedAd {
@@ -142,7 +141,7 @@ export interface GscSheetRow {
   position_previous?: number | null;
   filterName?: string;
   filterValue?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface GscAnalyzedItem {
@@ -224,7 +223,7 @@ export type DetailPageSection =
   | GscReportType; 
 
 
-export type ChartConfig = any; 
+export type ChartConfig = unknown; 
 
 export interface DetailPageDataTool1 {
   pageTitle: string;

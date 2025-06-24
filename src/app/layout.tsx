@@ -1,10 +1,10 @@
-
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ChatWidget } from '@/components/ai-chat/ChatWidget';
 
 export const metadata: Metadata = {
   title: 'ANALISI S.W.A.T. (Strengths, Weaknesses, Approaches, Tactics) Punti di forza, debolezze, approcci, tattiche',
@@ -26,6 +26,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <ChatWidget />
           <Toaster />
         </ThemeProvider>
       </body>
