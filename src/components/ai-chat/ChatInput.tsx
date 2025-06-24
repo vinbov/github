@@ -16,6 +16,8 @@ export function ChatInput() {
   return (
     <form onSubmit={handleSend} className="flex gap-2">
       <input
+        id="chat-input"
+        name="chat-input"
         className="flex-1 border rounded px-2 py-1 text-foreground bg-background"
         type="text"
         placeholder="Scrivi un messaggio..."

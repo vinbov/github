@@ -10,7 +10,7 @@ export async function askGptSearch(prompt: string): Promise<string> {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ input: { prompt } }), // <-- payload corretto per Apify
   });
   console.log("[askGptSearch] fetch completata, status:", res.status);
   if (!res.ok) throw new Error("Errore chiamata Apify: " + res.status);
