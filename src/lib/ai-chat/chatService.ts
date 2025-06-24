@@ -7,12 +7,16 @@ const API_URL = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-
 
 export async function askGptSearch(prompt: string): Promise<string> {
   console.log("[askGptSearch] chiamata con prompt:", prompt);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30 secondi
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompts: [prompt], country: "US" }),
+      body: JSON.stringify({ prompts: [prompt] }), // payload corretto per tri_angle/gpt-search
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     console.log("[askGptSearch] fetch completata, status:", res.status);
     if (!res.ok) throw new Error("Errore chiamata Apify: " + res.status);
     const data = await res.json();
@@ -25,6 +29,10 @@ export async function askGptSearch(prompt: string): Promise<string> {
     // Fallback: risposta vuota o formato inatteso
     return "[Nessuna risposta valida ricevuta dall'AI. Riprova o verifica la configurazione.]";
   } catch (err: any) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      return "[Timeout: nessuna risposta dall'AI dopo 30 secondi. Riprova più tardi.]";
+    }
     console.error("[askGptSearch] Errore:", err);
     return "[Errore nella comunicazione con l'AI: " + (err?.message || err) + "]";
   }
