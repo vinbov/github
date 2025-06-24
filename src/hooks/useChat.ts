@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askGptSearch } from "@/lib/ai-chat/chatService";
 
 export type ChatMessage = {
   id: string;
@@ -28,25 +29,30 @@ export function useChat() {
     };
     setMessages((prev) => [...prev, msg]);
     setLoading(true);
-    // Placeholder: qui chiamerai la tua API Genkit o altra AI
-    const aiResponse = await fakeGenkitApi(userMessage);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now() + Math.random().toString(36),
-        from: "ai",
-        message: aiResponse,
-        createdAt: Date.now(),
-      },
-    ]);
+    try {
+      const aiResponse = await askGptSearch(userMessage);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + Math.random().toString(36),
+          from: "ai",
+          message: aiResponse,
+          createdAt: Date.now(),
+        },
+      ]);
+    } catch (e: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + Math.random().toString(36),
+          from: "ai",
+          message: "Errore chiamata Apify: " + (e?.message || e),
+          createdAt: Date.now(),
+        },
+      ]);
+    }
     setLoading(false);
   }
 
   return { messages, sendMessage, loading };
-}
-
-// Simula una risposta AI (da sostituire con chiamata reale a Genkit)
-async function fakeGenkitApi(input: string): Promise<string> {
-  await new Promise((r) => setTimeout(r, 800));
-  return `Risposta AI a: "${input}"`;
 }
