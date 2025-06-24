@@ -1,31 +1,26 @@
-// Servizio per inviare prompt all'actor Apify GPT Search e ottenere la risposta
-// ATTENZIONE: chiave hardcoded solo per test locale!
+// Servizio per inviare prompt al nostro backend che contatta OpenAI
 
-const APIFY_TOKEN = "apify_api_U6GVlC8ekCj50XUfw0XbOynwe5h2yN1iAWV8";
-const ACTOR_ID = "SjvevRHp0tbpu3BeQ"; // ID actor GPT Search Tri⟁angle
-const API_URL = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
+const API_URL = "/api/chat"; // Chiama il nostro nuovo endpoint locale
 
 export async function askGptSearch(prompt: string): Promise<string> {
-  console.log("[askGptSearch] chiamata con prompt:", prompt);
+  console.log("[askGptSearch] Chiamata al backend con prompt:", prompt);
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompts: [prompt] }),
+      body: JSON.stringify({ prompt }), // Invia solo il prompt
     });
-    console.log("[askGptSearch] fetch completata, status:", res.status);
-    if (!res.ok) throw new Error("Errore chiamata Apify: " + res.status);
-    const data = await res.json();
-    console.log("[Apify API response]", data);
-    if (Array.isArray(data) && data[0]?.Response) {
-      if (typeof data[0].Response === "string" && data[0].Response.trim() !== "") {
-        return data[0].Response;
-      }
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || "Errore di comunicazione con il server");
     }
-    // Fallback: risposta vuota o formato inatteso
-    return "[Nessuna risposta valida ricevuta dall'AI. Riprova o verifica la configurazione.]";
+
+    const data = await res.json();
+    return data.response; // La risposta dell'AI sarà direttamente qui
+
   } catch (err: any) {
     console.error("[askGptSearch] Errore:", err);
-    return "[Errore nella comunicazione con l'AI: " + (err?.message || err) + "]";
+    return "[Errore nella comunicazione con l'AI: " + (err?.message || "dettagli non disponibili") + "]";
   }
 }
