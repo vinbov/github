@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -140,7 +139,14 @@ export function Tool3Scraper({
             });
             adsCounter++;
           }
-        } else if (item.snapshot && (item.snapshot.body?.text || item.snapshot.videos?.length > 0 || item.snapshot.images?.length > 0)) {
+        } else if (
+          item.snapshot &&
+          (
+            item.snapshot.body?.text ||
+            (Array.isArray(item.snapshot.videos) && item.snapshot.videos.length > 0) ||
+            (Array.isArray(item.snapshot.images) && item.snapshot.images.length > 0)
+          )
+        ) {
           if (adsCounter < maxAdsToProcess) {
             processedAdsCollector.push({
               id: generateId(),
@@ -311,23 +317,26 @@ export function Tool3Scraper({
       "7C_C5_Credibilita", "7C_C6_CTA", "7C_C7_Contesto",
       "7C_PunteggioTotale", "7C_Valutazione", "7C_AnalisiApprofondita", "Errore Analisi"
     ];
-    const csvRows = dataToDownload.map(item => ({
-      "Testo Ad": item.testo,
-      "Titolo Ad": item.titolo,
-      "Link Ad": item.link,
-      "Immagine Ad URL": item.immagine,
-      "7C_C1_Chiarezza": item.angleAnalysis?.c1Clarity,
-      "7C_C2_Coinvolgimento": item.angleAnalysis?.c2Engagement,
-      "7C_C3_Concretezza": item.angleAnalysis?.c3Concreteness,
-      "7C_C4_CoerenzaTarget": item.angleAnalysis?.c4Coherence,
-      "7C_C5_Credibilita": item.angleAnalysis?.c5Credibility,
-      "7C_C6_CTA": item.angleAnalysis?.c6CallToAction,
-      "7C_C7_Contesto": item.angleAnalysis?.c7Context,
-      "7C_PunteggioTotale": item.angleAnalysis?.totalScore,
-      "7C_Valutazione": item.angleAnalysis?.evaluation,
-      "7C_AnalisiApprofondita": item.angleAnalysis?.detailedAnalysis,
-      "Errore Analisi": item.analysisError || (item.angleAnalysis?.error || ""),
-    }));
+    const csvRows = dataToDownload.map(item => {
+      const ad = item as ScrapedAd & Partial<AdWithAngleAnalysis>;
+      return {
+        "Testo Ad": ad.testo,
+        "Titolo Ad": ad.titolo,
+        "Link Ad": ad.link,
+        "Immagine Ad URL": ad.immagine,
+        "7C_C1_Chiarezza": ad.angleAnalysis?.c1Clarity,
+        "7C_C2_Coinvolgimento": ad.angleAnalysis?.c2Engagement,
+        "7C_C3_Concretezza": ad.angleAnalysis?.c3Concreteness,
+        "7C_C4_CoerenzaTarget": ad.angleAnalysis?.c4Coherence,
+        "7C_C5_Credibilita": ad.angleAnalysis?.c5Credibility,
+        "7C_C6_CTA": ad.angleAnalysis?.c6CallToAction,
+        "7C_C7_Contesto": ad.angleAnalysis?.c7Context,
+        "7C_PunteggioTotale": ad.angleAnalysis?.totalScore,
+        "7C_Valutazione": ad.angleAnalysis?.evaluation,
+        "7C_AnalisiApprofondita": ad.angleAnalysis?.detailedAnalysis,
+        "Errore Analisi": ad.analysisError || (ad.angleAnalysis?.error || ""),
+      };
+    });
     exportToCSV("fb_ads_analysis_report.csv", headers, csvRows);
   };
   
