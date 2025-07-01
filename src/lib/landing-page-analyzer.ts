@@ -67,7 +67,7 @@ export async function analyzeLandingPage(url: string) {
                 name: field.getAttribute('name') || '',
                 placeholder: field.getAttribute('placeholder') || '',
                 label: field.getAttribute('aria-label') || 
-                       document.querySelector(`label[for="${field.id}"]`)?.textContent.trim() || ''
+                       document.querySelector(`label[for="${field.id}"]`)?.textContent?.trim() || ''
               }))
           }));
         }
@@ -80,7 +80,7 @@ export async function analyzeLandingPage(url: string) {
               name: field.getAttribute('name') || '',
               placeholder: field.getAttribute('placeholder') || '',
               label: field.getAttribute('aria-label') || 
-                     document.querySelector(`label[for="${field.id}"]`)?.textContent.trim() || ''
+                     document.querySelector(`label[for="${field.id}"]`)?.textContent?.trim() || ''
             }))
         }));
       };
@@ -90,7 +90,7 @@ export async function analyzeLandingPage(url: string) {
         const ctaElements = [
           ...Array.from(document.querySelectorAll('a.btn, a.button, button[type="submit"], [class*="cta"]')),
           ...Array.from(document.querySelectorAll('a, button')).filter(el => {
-            const text = el.textContent.toLowerCase().trim();
+            const text = el.textContent?.toLowerCase().trim() || '';
             const ctaPhrases = ['get started', 'try now', 'start', 'sign up', 'subscribe', 
                                'register', 'join', 'buy now', 'download', 'learn more', 'contact'];
             return ctaPhrases.some(phrase => text.includes(phrase));
@@ -98,7 +98,7 @@ export async function analyzeLandingPage(url: string) {
         ];
         
         return ctaElements.map(cta => ({
-          text: cta.textContent.trim(),
+          text: cta.textContent?.trim() || '',
           html: extractElementHtml(cta, 300),
           isAboveTheFold: cta.getBoundingClientRect().top < window.innerHeight
         }));
@@ -116,12 +116,12 @@ export async function analyzeLandingPage(url: string) {
         
         return {
           testimonials: testimonialElements.map(t => ({
-            text: t.textContent.trim(),
+            text: t.textContent?.trim() || '',
             html: extractElementHtml(t, 500)
           })),
           logos: clientLogos.map(logo => ({
-            alt: logo.alt,
-            src: logo.src
+            alt: logo.alt || '',
+            src: logo.src || ''
           })),
           trustBadges: Array.from(document.querySelectorAll(
             '.trust-badge, .security-badge, img[src*="trust"], img[src*="secure"], img[src*="guarantee"]'
@@ -136,16 +136,16 @@ export async function analyzeLandingPage(url: string) {
         
         // 1. Chiarezza del Messaggio e Proposta di Valore
         headlines: {
-          h1: Array.from(document.querySelectorAll('h1')).map(h => h.textContent.trim()),
-          h2: Array.from(document.querySelectorAll('h2')).map(h => h.textContent.trim()).slice(0, 5),
-          subheadings: Array.from(document.querySelectorAll('h3, h4, .subheading')).map(h => h.textContent.trim()).slice(0, 5)
+          h1: Array.from(document.querySelectorAll('h1')).map(h => h.textContent?.trim() || ''),
+          h2: Array.from(document.querySelectorAll('h2')).map(h => h.textContent?.trim() || '').slice(0, 5),
+          subheadings: Array.from(document.querySelectorAll('h3, h4, .subheading')).map(h => h.textContent?.trim() || '').slice(0, 5)
         },
         
         // 2. Impatto Visivo (Hero Section)
         heroSection: findHeroSection(),
         mainImages: Array.from(document.querySelectorAll('img')).slice(0, 3).map(img => ({
-          alt: img.alt,
-          src: img.src,
+          alt: img.alt || '',
+          src: img.src || '',
           isAboveTheFold: img.getBoundingClientRect().top < window.innerHeight
         })),
         
@@ -165,7 +165,7 @@ export async function analyzeLandingPage(url: string) {
         
         // 7. Esperienza Utente e Performance
         navigation: extractElementHtml(document.querySelector('nav, .navbar, .navigation, header'), 500),
-        footerLinks: Array.from(document.querySelectorAll('footer a')).map(a => a.textContent.trim()).slice(0, 10),
+        footerLinks: Array.from(document.querySelectorAll('footer a')).map(a => a.textContent?.trim() || '').slice(0, 10),
         
         // Misurazioni di usabilità 
         fontSizesUsed: Array.from(new Set(
