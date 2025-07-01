@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -88,7 +87,12 @@ export function Tool3Scraper({
       urls: [{ url: fbAdsUrl }],
       count: 100, 
       "scrapePageAds.activeStatus": "all",
-      period: ""
+      "scrapePageAds.adType": "all", // Include tutti i tipi di ads (video, foto, carousel, etc.)
+      "scrapePageAds.mediaType": "all", // Tutti i media (video, immagini, etc.)
+      "scrapePageAds.platforms": ["facebook", "instagram", "messenger", "audience_network"], // Specificamente tutti i placement
+      period: "",
+      "scrapePageAds.includeContent": true, // Forza l'inclusione del contenuto
+      "scrapePageAds.includeInactive": true // Assicurati che includa anche quelle non attive
     };
     const apiUrl = `https://api.apify.com/v2/acts/${apifyActorId}/run-sync-get-dataset-items?token=${apifyToken}&format=json&clean=true`;
 
@@ -124,34 +128,184 @@ export function Tool3Scraper({
       setLoadingMessage("Processazione risultati...");
       setApifyStatus("Stato: Processazione dati...");
 
+      // Debug logging per vedere la struttura dei dati
+      console.log("🔍 Debug Apify Data Structure:", JSON.stringify(items.slice(0, 2), null, 2));
+
+      // Log aggiuntivo per identificare annunci Instagram specifici
+      items.slice(0, 5).forEach((item, index) => {
+        const platforms = item.snapshot?.platforms || [];
+        const isInstagram = platforms.includes('instagram') || 
+                          item.snapshot?.instagram_actor_name || 
+                          item.snapshot?.instagram_text;
+        
+        if (isInstagram) {
+          console.log(`🔍 Annuncio Instagram rilevato #${index}:`, {
+            platforms: platforms,
+            instagram_fields: {
+              actor_name: item.snapshot?.instagram_actor_name,
+              instagram_text: item.snapshot?.instagram_text,
+              story_text: item.snapshot?.story_text,
+              text: item.snapshot?.text,
+              body: item.snapshot?.body?.text,
+              caption: item.snapshot?.caption
+            }
+          });
+        }
+      });
+
       const processedAdsCollector: ScrapedAd[] = [];
       let adsCounter = 0;
+      
+      // Helper function per estrarre testo da strutture diverse
+      const extractAdText = (item: any, card?: any): string => {
+        const sources = [
+          // Card-based text sources
+          card?.body,
+          card?.text,
+          card?.caption,
+          card?.description,
+          card?.creative_body,
+          // Snapshot-based text sources  
+          item.snapshot?.body?.text,
+          item.snapshot?.text,
+          item.snapshot?.caption,
+          item.snapshot?.description,
+          item.snapshot?.creative_body,
+          item.snapshot?.ad_creative_body,
+          item.snapshot?.post_text,
+          item.snapshot?.content,
+          // Instagram-specific text sources
+          item.snapshot?.instagram_actor_name,
+          item.snapshot?.actor_name,
+          item.snapshot?.instagram_text,
+          item.snapshot?.story_text,
+          // Alternative nested structures
+          item.snapshot?.story?.text,
+          item.snapshot?.story?.body,
+          item.snapshot?.creative?.body,
+          item.snapshot?.creative?.text,
+          item.snapshot?.creative?.caption,
+          item.snapshot?.media?.caption,
+          item.snapshot?.media?.text,
+          // Fallback to any text field
+          item.text,
+          item.body,
+          item.description,
+          item.caption
+        ];
+        
+        const foundText = sources.find(text => text && typeof text === 'string' && text.trim().length > 0) || "";
+        
+        // Debug logging per vedere cosa stiamo estraendo
+        if (foundText && console) {
+          console.log("🔍 Testo estratto:", foundText.substring(0, 100) + (foundText.length > 100 ? "..." : ""));
+        }
+        
+        return foundText;
+      };
+
+      // Helper function per estrarre titolo
+      const extractAdTitle = (item: any, card?: any): string => {
+        const sources = [
+          card?.title,
+          card?.headline,
+          item.snapshot?.title,
+          item.snapshot?.headline,
+          item.snapshot?.creative_link_title,
+          item.snapshot?.page_name,
+          item.snapshot?.byline,
+          item.title,
+          "N/D"
+        ];
+        
+        return sources.find(title => title && typeof title === 'string' && title.trim().length > 0) || "N/D";
+      };
+
+      // Helper function per estrarre immagine/video
+      const extractAdImage = (item: any, card?: any): string => {
+        const sources = [
+          card?.resized_image_url,
+          card?.original_image_url,
+          card?.image_url,
+          item.snapshot?.videos?.[0]?.video_preview_image_url,
+          item.snapshot?.videos?.[0]?.video_hd_url,
+          item.snapshot?.videos?.[0]?.video_sd_url,
+          item.snapshot?.images?.[0]?.url,
+          item.snapshot?.images?.[0]?.original_image_url,
+          item.snapshot?.creative_image_url,
+          item.snapshot?.page_profile_picture_url,
+          item.image_url,
+          item.snapshot?.media?.[0]?.image_url,
+          item.snapshot?.media?.[0]?.video_preview_image_url
+        ];
+        
+        return sources.find(url => url && typeof url === 'string' && url.trim().length > 0) || "";
+      };
+
+      // Helper function per estrarre link
+      const extractAdLink = (item: any, card?: any): string => {
+        const sources = [
+          card?.link_url,
+          card?.cta_url,
+          item.snapshot?.link_url,
+          item.snapshot?.cta_url,
+          item.snapshot?.creative_link_url,
+          item.snapshot?.page_profile_uri,
+          item.url,
+          item.link_url
+        ];
+        
+        return sources.find(url => url && typeof url === 'string' && url.trim().length > 0) || "";
+      };
+      
       for (const item of items) {
+        // Process cards se presenti
         const snapshotCards = item.snapshot?.cards;
         if (snapshotCards && snapshotCards.length > 0) {
           for (const card of snapshotCards) {
             if (adsCounter >= maxAdsToProcess) break;
-            processedAdsCollector.push({
-              id: generateId(),
-              testo: card.body || "",
-              titolo: card.title || "",
-              link: card.link_url || "",
-              immagine: card.resized_image_url || card.original_image_url || ""
-            });
-            adsCounter++;
+            
+            const adText = extractAdText(item, card);
+            const adTitle = extractAdTitle(item, card);
+            const adImage = extractAdImage(item, card);
+            const adLink = extractAdLink(item, card);
+            
+            // Solo aggiungi se abbiamo almeno testo o immagine
+            if (adText || adImage) {
+              processedAdsCollector.push({
+                id: generateId(),
+                testo: adText || "[Contenuto visivo - possibile Instagram Story/Reel]",
+                titolo: adTitle,
+                link: adLink,
+                immagine: adImage
+              });
+              adsCounter++;
+            }
           }
-        } else if (item.snapshot && (item.snapshot.body?.text || item.snapshot.videos?.length > 0 || item.snapshot.images?.length > 0)) {
-          if (adsCounter < maxAdsToProcess) {
+        } 
+        
+        // Process snapshot diretto
+        if (item.snapshot && adsCounter < maxAdsToProcess) {
+          const adText = extractAdText(item);
+          const adTitle = extractAdTitle(item);
+          const adImage = extractAdImage(item);
+          const adLink = extractAdLink(item);
+          
+          // Solo aggiungi se abbiamo almeno testo o immagine e non è un duplicato (logic di base)
+          if ((adText || adImage) && !processedAdsCollector.find(existing => 
+            existing.testo === adText && existing.titolo === adTitle && existing.immagine === adImage
+          )) {
             processedAdsCollector.push({
               id: generateId(),
-              testo: item.snapshot.body?.text || "",
-              titolo: item.snapshot.title || item.snapshot.page_name || "N/D",
-              link: item.snapshot.link_url || item.snapshot.page_profile_uri || item.url || "",
-              immagine: item.snapshot.videos?.[0]?.video_preview_image_url || item.snapshot.images?.[0]?.url || item.snapshot.page_profile_picture_url || ""
+              testo: adText || "[Contenuto visivo - possibile Instagram Story/Reel]",
+              titolo: adTitle,
+              link: adLink,
+              immagine: adImage
             });
             adsCounter++;
           }
         }
+        
         if (adsCounter >= maxAdsToProcess) break;
       }
       
@@ -311,23 +465,27 @@ export function Tool3Scraper({
       "7C_C5_Credibilita", "7C_C6_CTA", "7C_C7_Contesto",
       "7C_PunteggioTotale", "7C_Valutazione", "7C_AnalisiApprofondita", "Errore Analisi"
     ];
-    const csvRows = dataToDownload.map(item => ({
-      "Testo Ad": item.testo,
-      "Titolo Ad": item.titolo,
-      "Link Ad": item.link,
-      "Immagine Ad URL": item.immagine,
-      "7C_C1_Chiarezza": item.angleAnalysis?.c1Clarity,
-      "7C_C2_Coinvolgimento": item.angleAnalysis?.c2Engagement,
-      "7C_C3_Concretezza": item.angleAnalysis?.c3Concreteness,
-      "7C_C4_CoerenzaTarget": item.angleAnalysis?.c4Coherence,
-      "7C_C5_Credibilita": item.angleAnalysis?.c5Credibility,
-      "7C_C6_CTA": item.angleAnalysis?.c6CallToAction,
-      "7C_C7_Contesto": item.angleAnalysis?.c7Context,
-      "7C_PunteggioTotale": item.angleAnalysis?.totalScore,
-      "7C_Valutazione": item.angleAnalysis?.evaluation,
-      "7C_AnalisiApprofondita": item.angleAnalysis?.detailedAnalysis,
-      "Errore Analisi": item.analysisError || (item.angleAnalysis?.error || ""),
-    }));
+    const csvRows = dataToDownload.map(item => {
+      // Controllo tipo sicuro per accedere alle proprietà di analisi
+      const withAnalysis = item as AdWithAngleAnalysis;
+      return {
+        "Testo Ad": item.testo,
+        "Titolo Ad": item.titolo,
+        "Link Ad": item.link,
+        "Immagine Ad URL": item.immagine,
+        "7C_C1_Chiarezza": withAnalysis.angleAnalysis?.c1Clarity || "",
+        "7C_C2_Coinvolgimento": withAnalysis.angleAnalysis?.c2Engagement || "",
+        "7C_C3_Concretezza": withAnalysis.angleAnalysis?.c3Concreteness || "",
+        "7C_C4_CoerenzaTarget": withAnalysis.angleAnalysis?.c4Coherence || "",
+        "7C_C5_Credibilita": withAnalysis.angleAnalysis?.c5Credibility || "",
+        "7C_C6_CTA": withAnalysis.angleAnalysis?.c6CallToAction || "",
+        "7C_C7_Contesto": withAnalysis.angleAnalysis?.c7Context || "",
+        "7C_PunteggioTotale": withAnalysis.angleAnalysis?.totalScore || "",
+        "7C_Valutazione": withAnalysis.angleAnalysis?.evaluation || "",
+        "7C_AnalisiApprofondita": withAnalysis.angleAnalysis?.detailedAnalysis || "",
+        "Errore Analisi": withAnalysis.analysisError || (withAnalysis.angleAnalysis?.error || ""),
+      };
+    });
     exportToCSV("fb_ads_analysis_report.csv", headers, csvRows);
   };
   
