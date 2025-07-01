@@ -82,8 +82,40 @@ export interface ApifyRawAdItem {
     videos?: Array<{ video_preview_image_url?: string }>;
     images?: Array<{ url?: string }>;
     page_profile_picture_url?: string;
+    // Instagram-specific fields
+    platforms?: string[];
+    instagram_actor_name?: string;
+    instagram_text?: string;
+    story_text?: string;
+    text?: string;
+    caption?: string;
+    description?: string;
+    creative_body?: string;
+    ad_creative_body?: string;
+    post_text?: string;
+    content?: string;
+    actor_name?: string;
+    story?: {
+      text?: string;
+      body?: string;
+    };
+    creative?: {
+      body?: string;
+      text?: string;
+      caption?: string;
+    };
+    media?: Array<{
+      caption?: string;
+      text?: string;
+      image_url?: string;
+      video_preview_image_url?: string;
+    }>;
   };
   url?: string; 
+  text?: string;
+  body?: string;
+  description?: string;
+  caption?: string;
   [key: string]: unknown;
 }
 
