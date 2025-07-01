@@ -10,7 +10,8 @@ import { ToolDataForSeoAnalyzer } from '@/components/tools/tool-dataforseo-analy
 import { Tool3Scraper } from '@/components/tools/tool3-scraper/tool3-scraper';
 import { Tool4GSCAnalyzer } from '@/components/tools/tool4-gsc-analyzer/tool4-gsc-analyzer';
 import { Tool5MasterReport } from '@/components/tools/tool5-master-report/tool5-master-report';
-import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData } from '@/lib/types';
+import { Tool5LandingAnalyzer } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
+import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData, LandingPageWithAnalysis } from '@/lib/types';
 import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
 
 
@@ -21,6 +22,7 @@ const tools = [
   { id: 'tool3', label: 'FB Ads Library Scraper' },
   { id: 'tool4', label: 'Analizzatore Dati GSC' },
   { id: 'tool5', label: 'Report Consolidato' },
+  { id: 'tool5Landing', label: 'Analizzatore Landing Page' },
 ];
 
 export default function HomePage() {
@@ -61,6 +63,10 @@ export default function HomePage() {
   const [tool4ParsedGscData, setTool4ParsedGscData] = useState<GscParsedData | null>(null);
   const [tool4AnalyzedGscData, setTool4AnalyzedGscData] = useState<GscAnalyzedData | null>(null);
   const [tool4GscFiltersDisplay, setTool4GscFiltersDisplay] = useState<string>("");
+
+  // --- State for Tool 5 Landing ---
+  const [tool5LandingResults, setTool5LandingResults] = useState<LandingPageWithAnalysis[]>([]);
+  const [tool5LandingOpenAIApiKey, setTool5LandingOpenAIApiKey] = useState('');
 
 
   return (
@@ -179,6 +185,16 @@ export default function HomePage() {
                   analyzedGscData: tool4AnalyzedGscData,
                   gscFiltersDisplay: tool4GscFiltersDisplay,
                 }}
+              />
+            </div>
+          )}
+          {activeTool === 'tool5Landing' && (
+            <div id="tool5Landing-container">
+              <Tool5LandingAnalyzer
+                openAIApiKey={tool5LandingOpenAIApiKey}
+                setOpenAIApiKey={setTool5LandingOpenAIApiKey}
+                analyzedPages={tool5LandingResults}
+                setAnalyzedPages={setTool5LandingResults}
               />
             </div>
           )}
