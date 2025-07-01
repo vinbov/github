@@ -279,10 +279,9 @@ export function Tool3Scraper({
                 link: adLink,
                 immagine: adImage
               });
-              adsCounter++;
-            }
+              adsCounter++;            }
           }
-<<<<<<< HEAD        } 
+        } 
         
         // Process snapshot diretto
         if (item.snapshot && adsCounter < maxAdsToProcess) {

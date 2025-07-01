@@ -303,3 +303,101 @@ export const EXPECTED_COLUMNS_TOOL2: Record<keyof CsvRowTool2, string> = {
   difficolta: 'Keyword Difficulty', opportunity: 'Keyword Opportunity', intento: 'Intent'
 };
 export const COLUMN_ALIASES_TOOL2 = COLUMN_ALIASES_TOOL1;
+
+// Tool 4: Landing Page Marketing Analyzer
+export interface LandingPageScrapedData {
+  title: string;
+  headline: string;
+  subheadline?: string;
+  metaDescription?: string;
+  ctaButtons: Array<{
+    text: string;
+    href?: string;
+    position: string;
+  }>;
+  forms: Array<{
+    fields: number;
+    requiredFields: number;
+    position: string;
+  }>;
+  images: Array<{
+    src: string;
+    alt?: string;
+    isHero?: boolean;
+  }>;
+  videos: Array<{
+    src: string;
+    position: string;
+  }>;
+  testimonials: Array<{
+    text: string;
+    author?: string;
+    position?: string;
+  }>;
+  socialProof: {
+    clientLogos: string[];
+    reviewCount?: number;
+    ratings?: number;
+    certifications: string[];
+  };
+  trustElements: {
+    securityBadges: string[];
+    guarantees: string[];
+    contactInfo: boolean;
+    privacyPolicy: boolean;
+  };
+  technicalData: {
+    loadTime?: number;
+    mobileResponsive: boolean;
+    hasSSL: boolean;
+    metaTagsOptimized: boolean;
+  };
+  contentSections: Array<{
+    type: string;
+    content: string;
+    position: number;
+  }>;
+}
+
+export interface LandingPageAnalysis {
+  // 10M Framework Scores (0-10 each)
+  m1MessageClarity: number;
+  m2VisualImpact: number;
+  m3CtaEffectiveness: number;
+  m4TrustElements: number;
+  m5UserFlow: number;
+  m6MobileExperience: number;
+  m7SocialProof: number;
+  m8UrgencyScarcity: number;
+  m9ContentQuality: number;
+  m10ConversionOptimization: number;
+  
+  // Overall metrics
+  overallScore: number; // 0-100 (sum of all M scores)
+  evaluation: string; // Ottimo/Buono/Mediocre/Scarso
+  
+  // Actionable insights
+  strengths: string[];
+  criticalIssues: string[];
+  priorityRecommendations: string[];
+  
+  // Detailed analysis with motivations
+  detailedAnalysis: string;
+  
+  // Performance indicators
+  conversionProbability: 'Alta' | 'Media' | 'Bassa';
+  
+  // Error handling
+  error?: string;
+}
+
+export interface LandingPageWithAnalysis {
+  id: string;
+  url: string;
+  businessType: string;
+  primaryGoal: string;
+  targetAudience: string;
+  scrapedData: LandingPageScrapedData;
+  analysis: LandingPageAnalysis;
+  analyzedAt: string;
+}
