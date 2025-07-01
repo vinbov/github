@@ -282,7 +282,7 @@ export function Tool3Scraper({
               adsCounter++;
             }
           }
-        } 
+<<<<<<< HEAD        } 
         
         // Process snapshot diretto
         if (item.snapshot && adsCounter < maxAdsToProcess) {
@@ -464,8 +464,7 @@ export function Tool3Scraper({
       "7C_C1_Chiarezza", "7C_C2_Coinvolgimento", "7C_C3_Concretezza", "7C_C4_CoerenzaTarget", 
       "7C_C5_Credibilita", "7C_C6_CTA", "7C_C7_Contesto",
       "7C_PunteggioTotale", "7C_Valutazione", "7C_AnalisiApprofondita", "Errore Analisi"
-    ];
-    const csvRows = dataToDownload.map(item => {
+    ];    const csvRows = dataToDownload.map(item => {
       // Controllo tipo sicuro per accedere alle proprietà di analisi
       const withAnalysis = item as AdWithAngleAnalysis;
       return {
