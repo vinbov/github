@@ -52,7 +52,7 @@ export function useOpenAI() {
       
       return analysisResult;
     } catch (err: any) {
-      setError(err.message || 'Errore durante l'analisi');
+      setError(err.message || "Errore durante l'analisi");
       return null;
     } finally {
       setLoading(false);
