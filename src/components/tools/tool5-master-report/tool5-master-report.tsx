@@ -1,608 +1,239 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Download, FileSpreadsheet, Play, StopCircle } from 'lucide-react';
+import { AlertCircle, Download, FileSpreadsheet, Play, Zap } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import * as XLSX from 'xlsx';
 
+// Definiamo tipi chiari per i dati
+type AnalysisSection = 'messageClarity' | 'visualImpact' | 'persuasiveCopy' | 'socialProof' | 'callToAction' | 'contactForm' | 'userExperience';
+type Analysis = Record<AnalysisSection | 'recommendations', string>;
+type Issue = { category: string; severity: string; issue: string };
+type ExtractedElement = { type: string; text: string; category: string; details: string; importance: string };
+type TokenUsage = { prompt: number; completion: number; total: number };
+
+// Definiamo lo stato del componente per una gestione più pulita
+type ComponentState = 
+  | { name: 'idle' }
+  | { name: 'extracting' }
+  | { name: 'extraction_failed'; error: string }
+  | { name: 'extracted'; issues: Issue[]; elements: ExtractedElement[]; extractedData: any }
+  | { name: 'analyzing'; issues: Issue[]; elements: ExtractedElement[] }
+  | { name: 'analysis_failed'; issues: Issue[]; elements: ExtractedElement[]; extractedData: any; error: string }
+  | { name: 'complete'; issues: Issue[]; elements: ExtractedElement[]; analysis: Analysis; tokenUsage: TokenUsage };
+
 export interface Tool5MasterReportProps {
   landingPageUrl: string;
-  landingPageScreenshot: string;
 }
 
-export function Tool5MasterReport({ 
-  landingPageUrl, 
-  landingPageScreenshot
-}: Tool5MasterReportProps) {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<{prompt: number; completion: number; total: number} | null>(null);
-  
-  // Nuovi stati per supportare il flusso in due fasi
-  const [extractedData, setExtractedData] = useState<any>(null);
-  const [extractionComplete, setExtractionComplete] = useState<boolean>(false);
-  const [issues, setIssues] = useState<Array<{category: string; severity: string; issue: string}>>([]);
-  const [aiAnalysisInProgress, setAiAnalysisInProgress] = useState<boolean>(false);
-  const [elements, setElements] = useState<any[]>([]);
-  
-  const [analysis, setAnalysis] = useState<{
-    messageClarity: string;
-    visualImpact: string;
-    persuasiveCopy: string;
-    socialProof: string;
-    callToAction: string;
-    contactForm: string;
-    userExperience: string;
-    recommendations: string;
-  } | null>(null);
+export function Tool5MasterReport({ landingPageUrl }: Tool5MasterReportProps) {
+  const [state, setState] = useState<ComponentState>({ name: 'idle' });
 
-  useEffect(() => {
-    const extractLandingPageData = async () => {
-      if (!landingPageUrl) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Fase 1: Estrazione dati HTML (senza AI)
-        const response = await fetch('/api/analyze-landing-page', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: landingPageUrl,
-            action: 'extract'
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Errore nell'estrazione dei dati");
-        }
-        
-        const data = await response.json();
-        setExtractedData(data.extractedData);
-        setIssues(data.issues || []);
-        
-        // Prepara gli elementi per la visualizzazione in tabella e scaricamento in Excel
-        prepareElementsForTable(data.extractedData.data);
-        
-        setExtractionComplete(true);
-        
-      } catch (err: any) {
-        setError(err.message || "Errore durante l'analisi");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    extractLandingPageData();
-  }, [landingPageUrl]);
-  
-  const prepareElementsForTable = (data: any) => {
-    const allElements = [];
-    
-    // Aggiungi headlines
-    data.headlines.h1.forEach((text: string) => {
-      allElements.push({
-        type: 'Headline (H1)',
-        text: text,
-        category: 'messageClarity',
-        details: 'Titolo principale',
-        importance: 'Alta'
-      });
-    });
-    
-    data.headlines.h2.forEach((text: string) => {
-      allElements.push({
-        type: 'Sottotitolo (H2)',
-        text: text,
-        category: 'messageClarity',
-        details: 'Sottotitolo',
-        importance: 'Media'
-      });
-    });
-    
-    // Aggiungi CTA
-    data.ctas.forEach((cta: any) => {
-      allElements.push({
-        type: 'CTA',
-        text: cta.text,
-        category: 'callToAction',
-        details: cta.isAboveTheFold ? 'Above the fold' : 'Below the fold',
-        importance: cta.isAboveTheFold ? 'Alta' : 'Media'
-      });
-    });
-    
-    // Aggiungi form
-    data.contactForms.forEach((form: any, index: number) => {
-      allElements.push({
-        type: 'Form di contatto',
-        text: `Form #${index + 1} con ${form.fields.length} campi`,
-        category: 'contactForm',
-        details: `Campi: ${form.fields.map((f: any) => f.type).join(', ')}`,
-        importance: 'Alta'
-      });
-    });
-    
-    // Aggiungi social proof
-    data.socialProof.testimonials.forEach((testimonial: any, index: number) => {
-      allElements.push({
-        type: 'Testimonianza',
-        text: testimonial.text.substring(0, 100) + (testimonial.text.length > 100 ? '...' : ''),
-        category: 'socialProof',
-        details: `Testimonianza #${index + 1}`,
-        importance: 'Media'
-      });
-    });
-    
-    data.socialProof.logos.forEach((logo: any, index: number) => {
-      allElements.push({
-        type: 'Logo cliente',
-        text: logo.alt || `Logo #${index + 1}`,
-        category: 'socialProof',
-        details: `Src: ${logo.src}`,
-        importance: 'Media'
-      });
-    });
-    
-    // Aggiungi immagini principali
-    data.mainImages.forEach((image: any, index: number) => {
-      allElements.push({
-        type: 'Immagine',
-        text: image.alt || `Immagine #${index + 1}`,
-        category: 'visualImpact',
-        details: image.isAboveTheFold ? 'Above the fold' : 'Below the fold',
-        importance: image.isAboveTheFold ? 'Alta' : 'Media'
-      });
-    });
-    
-    // Aggiungi sezioni benefit
-    data.benefitSections.forEach((section: any, index: number) => {
-      allElements.push({
-        type: 'Sezione benefit',
-        text: `Sezione benefit #${index + 1}`,
-        category: 'persuasiveCopy',
-        details: 'Contiene informazioni sui benefici del prodotto/servizio',
-        importance: 'Alta'
-      });
-    });
-    
-    setElements(allElements);
-  };
-  
-  const runAiAnalysis = async () => {
-    if (!extractedData) return;
-    
-    setAiAnalysisInProgress(true);
-    setError(null);
-    
+  // Funzione per avviare l'estrazione
+  const extractData = async () => {
+    setState({ name: 'extracting' });
     try {
       const response = await fetch('/api/analyze-landing-page', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: landingPageUrl,
-          extractedData: extractedData,
-          action: 'analyze'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: landingPageUrl, action: 'extract' }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Errore nell'analisi AI");
+        throw new Error(errorData.error || "Errore sconosciuto durante l'estrazione");
       }
-      
+
       const data = await response.json();
-      
-      setTokenUsage({
-        prompt: data.tokens.prompt_tokens,
-        completion: data.tokens.completion_tokens,
-        total: data.tokens.total_tokens
+      const elements = prepareElementsForTable(data.extractedData?.data);
+      setState({
+        name: 'extracted',
+        issues: data.issues || [],
+        elements,
+        extractedData: data.extractedData,
       });
-      
-      // Aggiorna l'analisi per la visualizzazione
-      const analysisResult = {
-        messageClarity: data.sections?.messageClarity || data.analysis,
+    } catch (err: any) {
+      setState({ name: 'extraction_failed', error: err.message });
+    }
+  };
+
+  // Funzione per avviare l'analisi AI
+  const runAiAnalysis = async () => {
+    if (state.name !== 'extracted' && state.name !== 'analysis_failed') return;
+    
+    const { issues, elements, extractedData } = state;
+    setState({ name: 'analyzing', issues, elements });
+
+    try {
+      const response = await fetch('/api/analyze-landing-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: landingPageUrl, extractedData, action: 'analyze' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Errore sconosciuto durante l'analisi AI");
+      }
+
+      const data = await response.json();
+      const analysisResult: Analysis = {
+        messageClarity: data.sections?.messageClarity || "",
         visualImpact: data.sections?.visualImpact || "",
         persuasiveCopy: data.sections?.persuasiveCopy || "",
         socialProof: data.sections?.socialProof || "",
         callToAction: data.sections?.callToAction || "",
         contactForm: data.sections?.contactForm || "",
         userExperience: data.sections?.userExperience || "",
-        recommendations: data.sections?.recommendations || ""
+        recommendations: data.sections?.recommendations || data.analysis || ""
       };
-      
-      setAnalysis(analysisResult);
-      
+      const tokenUsage: TokenUsage = {
+        prompt: data.tokens?.prompt_tokens || 0,
+        completion: data.tokens?.completion_tokens || 0,
+        total: data.tokens?.total_tokens || 0,
+      };
+
+      setState({ name: 'complete', issues, elements, analysis: analysisResult, tokenUsage });
     } catch (err: any) {
-      setError(err.message || "Errore durante l'analisi AI");
-    } finally {
-      setAiAnalysisInProgress(false);
+      setState({ name: 'analysis_failed', issues, elements, extractedData, error: err.message });
     }
   };
-  
-  const abortAnalysis = async () => {
-    try {
-      await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'abort'
-        }),
-      });
-      
-      setAiAnalysisInProgress(false);
-      setError("Analisi interrotta dall'utente");
-    } catch (err) {
-      console.error("Errore nell'interruzione dell'analisi:", err);
+
+  // useEffect avvia l'estrazione solo una volta
+  useEffect(() => {
+    if (landingPageUrl) {
+      extractData();
     }
-  };
-  
-  const downloadExcelReport = () => {
-    if (!elements || elements.length === 0) return;
-    
-    // Crea un nuovo workbook
-    const wb = XLSX.utils.book_new();
-    
-    // Crea un worksheet per gli elementi
-    const ws = XLSX.utils.json_to_sheet(elements);
-    
-    // Aggiungi il worksheet al workbook
-    XLSX.utils.book_append_sheet(wb, ws, "Elementi Landing Page");
-    
-    // Crea un secondo worksheet per i problemi rilevati
-    if (issues && issues.length > 0) {
-      const issuesFormatted = issues.map(issue => ({
-        Categoria: getCategoryName(issue.category),
-        Severità: getSeverityText(issue.severity),
-        Problema: issue.issue
-      }));
-      const wsIssues = XLSX.utils.json_to_sheet(issuesFormatted);
-      XLSX.utils.book_append_sheet(wb, wsIssues, "Problemi Rilevati");
+  }, [landingPageUrl]);
+
+  // Memoizziamo le funzioni di download per evitare ricreazioni inutili
+  const downloadExcelReport = useMemo(() => () => {
+    if ('elements' in state && state.elements.length > 0) {
+      const wb = XLSX.utils.book_new();
+      const wsElements = XLSX.utils.json_to_sheet(state.elements);
+      XLSX.utils.book_append_sheet(wb, wsElements, "Elementi Estratti");
+      if (state.issues.length > 0) {
+        const wsIssues = XLSX.utils.json_to_sheet(state.issues.map(i => ({ Categoria: getCategoryName(i.category), Severita: i.severity, Problema: i.issue })));
+        XLSX.utils.book_append_sheet(wb, wsIssues, "Problemi Rilevati");
+      }
+      XLSX.writeFile(wb, `report-elementi-${new URL(landingPageUrl).hostname}-${new Date().toISOString().split('T')[0]}.xlsx`);
     }
+  }, [state, landingPageUrl]);
+
+  // Render condizionale basato sullo stato
+  switch (state.name) {
+    case 'extracting':
+    case 'analyzing':
+      return <LoadingCard title={state.name === 'extracting' ? "Estrazione in corso..." : "Analisi AI in corso..."} description="Stiamo analizzando la tua landing page..." />;
     
-    // Scarica il file Excel
-    XLSX.writeFile(wb, `landing-page-elements-${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-  
-  const downloadIssuesReport = () => {
-    if (!issues || issues.length === 0) return;
-    
-    const issuesByCategory = issues.reduce((acc, issue) => {
-      acc[issue.category] = acc[issue.category] || [];
-      acc[issue.category].push(issue);
-      return acc;
-    }, {} as Record<string, any[]>);
-    
-    let reportContent = `# Problemi Rilevati nella Landing Page: ${landingPageUrl}\n\n`;
-    reportContent += `Data analisi: ${new Date().toLocaleString()}\n\n`;
-    
-    Object.keys(issuesByCategory).forEach(category => {
-      const categoryName = getCategoryName(category);
-      reportContent += `## ${categoryName}\n\n`;
-      
-      issuesByCategory[category].forEach(issue => {
-        const severityIcon = getSeverityIcon(issue.severity);
-        reportContent += `- ${severityIcon} ${issue.issue}\n`;
-      });
-      
-      reportContent += '\n';
-    });
-    
-    reportContent += `\n## Riepilogo\n\n`;
-    reportContent += `- Problemi critici: ${issues.filter(i => i.severity === 'critical').length}\n`;
-    reportContent += `- Problemi gravi: ${issues.filter(i => i.severity === 'high').length}\n`;
-    reportContent += `- Problemi medi: ${issues.filter(i => i.severity === 'medium').length}\n`;
-    
-    const blob = new Blob([reportContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `landing-page-issues-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-  
-  function getCategoryName(category: string): string {
-    const categories: Record<string, string> = {
-      messageClarity: 'Chiarezza del Messaggio',
-      visualImpact: 'Impatto Visivo',
-      persuasiveCopy: 'Copy Persuasivo',
-      socialProof: 'Prova Sociale',
-      callToAction: 'Call-to-Action',
-      contactForm: 'Form di Contatto',
-      userExperience: 'Esperienza Utente'
-    };
-    return categories[category] || category;
+    case 'extraction_failed':
+      return <ErrorCard error={state.error} onRetry={extractData} />;
+
+    case 'extracted':
+    case 'analysis_failed':
+      return (
+        <ExtractionResultCard
+          issues={state.issues}
+          elements={state.elements}
+          onAnalyzeClick={runAiAnalysis}
+          onDownloadClick={downloadExcelReport}
+          error={state.name === 'analysis_failed' ? state.error : undefined}
+        />
+      );
+
+    case 'complete':
+      return (
+        <FullReportCard
+          url={landingPageUrl}
+          analysis={state.analysis}
+          tokenUsage={state.tokenUsage}
+          onDownloadClick={downloadExcelReport}
+        />
+      );
+
+    default:
+      return null;
   }
-  
-  function getSeverityIcon(severity: string): string {
-    const icons: Record<string, string> = {
-      critical: '🔴',
-      high: '🟠',
-      medium: '🟡',
-      low: '🔵'
-    };
-    return icons[severity] || '⚪';
-  }
-  
-  function getSeverityText(severity: string): string {
-    const texts: Record<string, string> = {
-      critical: 'Critico',
-      high: 'Alto',
-      medium: 'Medio',
-      low: 'Basso'
-    };
-    return texts[severity] || 'Sconosciuto';
-  }
-  
-  const cancelOperation = () => {
-    if (aiAnalysisInProgress) {
-      abortAnalysis();
-    } else {
-      setLoading(false);
-      setError("Operazione annullata dall'utente");
-    }
-  };
-  
-  if (loading) return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Analisi in corso...</CardTitle>
-        <CardDescription>
-          Stiamo estraendo i dati dalla landing page
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-5/6" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button variant="destructive" onClick={cancelOperation}>
-          <StopCircle className="mr-2 h-4 w-4" />
-          Interrompi Operazione
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-  
-  if (error) return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-red-600">Errore nell'analisi</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Errore</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <p className="mt-2">Riprova con un altro URL o contatta l'assistenza.</p>
-      </CardContent>
-    </Card>
-  );
-  
-  if (extractionComplete && !analysis) {
-    // Mostra elementi estratti in una tabella e permette di scaricarli
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Elementi HTML Estratti dalla Landing Page</CardTitle>
-          <CardDescription>
-            Abbiamo estratto {elements.length} elementi e rilevato {issues.length} potenziali problemi
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Elementi principali rilevati</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="p-2 border">Tipo</th>
-                    <th className="p-2 border">Testo</th>
-                    <th className="p-2 border">Categoria</th>
-                    <th className="p-2 border">Dettagli</th>
-                    <th className="p-2 border">Importanza</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {elements.slice(0, 10).map((element, index) => (
-                    <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                      <td className="p-2 border">{element.type}</td>
-                      <td className="p-2 border">{element.text}</td>
-                      <td className="p-2 border">{getCategoryName(element.category)}</td>
-                      <td className="p-2 border">{element.details}</td>
-                      <td className="p-2 border">{element.importance}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {elements.length > 10 && (
-                <p className="mt-2 text-sm text-gray-500">
-                  Mostrati i primi 10 elementi di {elements.length}. Scarica il report completo per vedere tutti gli elementi.
-                </p>
-              )}
-            </div>
+}
 
-            <h3 className="text-lg font-medium mt-6">Problemi rilevati</h3>
-            {issues.length > 0 ? (
-              <div className="space-y-4">
-                {['critical', 'high', 'medium', 'low'].map(severity => {
-                  const filteredIssues = issues.filter(issue => issue.severity === severity);
-                  if (filteredIssues.length === 0) return null;
-                  
-                  return (
-                    <div key={severity} className="space-y-2">
-                      <h3 className="font-medium">
-                        {getSeverityIcon(severity)} {severity === 'critical' ? 'Problemi Critici' : 
-                          severity === 'high' ? 'Problemi Gravi' : 
-                          severity === 'medium' ? 'Problemi Medi' : 
-                          'Problemi Minori'}
-                      </h3>
-                      <ul className="pl-6 space-y-1">
-                        {filteredIssues.map((issue, index) => (
-                          <li key={index} className="list-disc">
-                            <span className="font-medium">{getCategoryName(issue.category)}:</span> {issue.issue}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p>Non sono stati rilevati problemi evidenti nella struttura della landing page.</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between flex-wrap gap-2">
-          <div>
-            <Button variant="outline" onClick={downloadExcelReport} className="mr-2">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Scarica Excel Completo
-            </Button>
-            <Button variant="outline" onClick={downloadIssuesReport} disabled={issues.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              Scarica Report Problemi
-            </Button>
-          </div>
-          <div className="flex">
-            <Button onClick={cancelOperation} variant="destructive" className="mr-2">
-              <StopCircle className="mr-2 h-4 w-4" />
-              Interrompi Operazione
-            </Button>
-            <Button onClick={runAiAnalysis} disabled={aiAnalysisInProgress}>
-              <Play className="mr-2 h-4 w-4" />
-              Avvia Analisi AI Completa
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
-    );
-  }
-  
-  if (aiAnalysisInProgress) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Analisi AI in corso...</CardTitle>
-          <CardDescription>
-            Stiamo elaborando un'analisi approfondita della landing page
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-4 w-2/3" />
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button variant="destructive" onClick={abortAnalysis}>
-            <StopCircle className="mr-2 h-4 w-4" />
-            Interrompi Analisi
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
+// Componenti di UI per mantenere il render pulito
+const LoadingCard = ({ title, description }: { title: string; description: string }) => (
+  <Card className="w-full"><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent><div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div></CardContent></Card>
+);
 
-  return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Analisi Completa della Landing Page</CardTitle>
-        <CardDescription>
-          Valutazione di {landingPageUrl} basata sui 7 elementi critici di una landing page efficace
-        </CardDescription>
-        {tokenUsage && (
-          <div className="text-xs text-gray-500 mt-1 flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-            Consumo token: {tokenUsage.total} 
-            (Prompt: {tokenUsage.prompt}, Risposta: {tokenUsage.completion})
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="messageClarity" className="w-full">
-          <TabsList className="grid grid-cols-7 mb-4">
-            <TabsTrigger value="messageClarity">Messaggio</TabsTrigger>
-            <TabsTrigger value="visualImpact">Impatto Visivo</TabsTrigger>
-            <TabsTrigger value="persuasiveCopy">Copy</TabsTrigger>
-            <TabsTrigger value="socialProof">Prova Sociale</TabsTrigger>
-            <TabsTrigger value="callToAction">CTA</TabsTrigger>
-            <TabsTrigger value="contactForm">Form</TabsTrigger>
-            <TabsTrigger value="userExperience">UX</TabsTrigger>
-          </TabsList>
+const ErrorCard = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+  <Card className="w-full"><CardHeader><CardTitle className="text-red-600">Errore</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Si è verificato un errore</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></CardContent><CardFooter><Button onClick={onRetry}>Riprova</Button></CardFooter></Card>
+);
 
-          <TabsContent value="messageClarity" className="space-y-4">
-            <h3 className="text-lg font-bold">Chiarezza del Messaggio e Proposta di Valore</h3>
-            <div className="whitespace-pre-wrap">{analysis?.messageClarity}</div>
-          </TabsContent>
+const ExtractionResultCard = ({ issues, elements, onAnalyzeClick, onDownloadClick, error }: { issues: Issue[], elements: ExtractedElement[], onAnalyzeClick: () => void, onDownloadClick: () => void, error?: string }) => (
+  <Card className="w-full">
+    <CardHeader>
+      <CardTitle>Estrazione Completata</CardTitle>
+      <CardDescription>Abbiamo estratto {elements.length} elementi e rilevato {issues.length} problemi.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      {error && <Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Errore Analisi AI</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+      <h3 className="font-bold mb-2">Problemi Rilevati</h3>
+      {issues.length > 0 ? (
+        <ul className="space-y-1 list-disc pl-5">
+          {issues.map((issue, i) => <li key={i}>{getSeverityIcon(issue.severity)} <strong>{getCategoryName(issue.category)}:</strong> {issue.issue}</li>)}
+        </ul>
+      ) : <p>Nessun problema strutturale rilevato.</p>}
+    </CardContent>
+    <CardFooter className="flex justify-between">
+      <Button variant="outline" onClick={onDownloadClick}><FileSpreadsheet className="mr-2 h-4 w-4" /> Scarica Report Excel</Button>
+      <Button onClick={onAnalyzeClick}><Play className="mr-2 h-4 w-4" /> Avvia Analisi AI Completa</Button>
+    </CardFooter>
+  </Card>
+);
 
-          <TabsContent value="visualImpact" className="space-y-4">
-            <h3 className="text-lg font-bold">Impatto Visivo (Hero Section)</h3>
-            <div className="whitespace-pre-wrap">{analysis?.visualImpact}</div>
-          </TabsContent>
+const FullReportCard = ({ url, analysis, tokenUsage, onDownloadClick }: { url: string, analysis: Analysis, tokenUsage: TokenUsage, onDownloadClick: () => void }) => (
+  <Card className="w-full">
+    <CardHeader>
+      <CardTitle>Analisi Completa della Landing Page</CardTitle>
+      <CardDescription>Valutazione di {url}</CardDescription>
+      <div className="text-xs text-gray-500 mt-1 flex items-center"><Zap className="w-4 h-4 mr-1" />Consumo token: {tokenUsage.total}</div>
+    </CardHeader>
+    <CardContent>
+      <Tabs defaultValue="recommendations">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="recommendations">Raccomandazioni</TabsTrigger>
+          <TabsTrigger value="messageClarity">Messaggio</TabsTrigger>
+          <TabsTrigger value="visualImpact">Impatto Visivo</TabsTrigger>
+          <TabsTrigger value="callToAction">CTA</TabsTrigger>
+        </TabsList>
+        <TabsContent value="recommendations" className="mt-4"><div className="whitespace-pre-wrap p-4 bg-slate-50 rounded-lg">{analysis.recommendations}</div></TabsContent>
+        <TabsContent value="messageClarity" className="mt-4"><div className="whitespace-pre-wrap">{analysis.messageClarity}</div></TabsContent>
+        <TabsContent value="visualImpact" className="mt-4"><div className="whitespace-pre-wrap">{analysis.visualImpact}</div></TabsContent>
+        <TabsContent value="callToAction" className="mt-4"><div className="whitespace-pre-wrap">{analysis.callToAction}</div></TabsContent>
+      </Tabs>
+    </CardContent>
+    <CardFooter>
+      <Button variant="outline" onClick={onDownloadClick}><FileSpreadsheet className="mr-2 h-4 w-4" /> Scarica Report Excel</Button>
+    </CardFooter>
+  </Card>
+);
 
-          <TabsContent value="persuasiveCopy" className="space-y-4">
-            <h3 className="text-lg font-bold">Testo Persuasivo e Benefici</h3>
-            <div className="whitespace-pre-wrap">{analysis?.persuasiveCopy}</div>
-          </TabsContent>
+// Funzioni di utilità
+function prepareElementsForTable(data: any): ExtractedElement[] {
+  if (!data) return [];
+  const allElements: ExtractedElement[] = [];
+  data.headlines?.h1?.forEach((text: string) => allElements.push({ type: 'Headline (H1)', text, category: 'messageClarity', details: 'Titolo principale', importance: 'Alta' }));
+  data.headlines?.h2?.forEach((text: string) => allElements.push({ type: 'Sottotitolo (H2)', text, category: 'messageClarity', details: 'Sottotitolo', importance: 'Media' }));
+  data.ctas?.forEach((cta: any) => allElements.push({ type: 'CTA', text: cta.text, category: 'callToAction', details: cta.isAboveTheFold ? 'Above the fold' : 'Below the fold', importance: 'Alta' }));
+  data.contactForms?.forEach((form: any, index: number) => allElements.push({ type: 'Form di contatto', text: `Form #${index + 1}`, category: 'contactForm', details: `Campi: ${form.fields.map((f: any) => f.type).join(', ')}`, importance: 'Alta' }));
+  data.socialProof?.testimonials?.forEach((testimonial: any) => allElements.push({ type: 'Testimonianza', text: testimonial.text.substring(0, 100) + '...', category: 'socialProof', details: 'Testimonianza', importance: 'Media' }));
+  return allElements;
+}
 
-          <TabsContent value="socialProof" className="space-y-4">
-            <h3 className="text-lg font-bold">Prova Sociale</h3>
-            <div className="whitespace-pre-wrap">{analysis?.socialProof}</div>
-          </TabsContent>
+function getCategoryName(category: string): string {
+  const names: Record<string, string> = { messageClarity: 'Chiarezza Messaggio', visualImpact: 'Impatto Visivo', callToAction: 'Call to Action' };
+  return names[category] || category;
+}
 
-          <TabsContent value="callToAction" className="space-y-4">
-            <h3 className="text-lg font-bold">Call-to-Action</h3>
-            <div className="whitespace-pre-wrap">{analysis?.callToAction}</div>
-          </TabsContent>
-
-          <TabsContent value="contactForm" className="space-y-4">
-            <h3 className="text-lg font-bold">Modulo di Contatto</h3>
-            <div className="whitespace-pre-wrap">{analysis?.contactForm}</div>
-          </TabsContent>
-
-          <TabsContent value="userExperience" className="space-y-4">
-            <h3 className="text-lg font-bold">Esperienza Utente e Performance</h3>
-            <div className="whitespace-pre-wrap">{analysis?.userExperience}</div>
-          </TabsContent>
-        </Tabs>
-
-        <div className="mt-8 p-4 bg-slate-50 rounded-lg">
-          <h3 className="text-lg font-bold mb-2">Raccomandazioni per Miglioramenti</h3>
-          <div className="whitespace-pre-wrap">{analysis?.recommendations}</div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={downloadExcelReport}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Scarica Report Elementi
-        </Button>
-        <Button variant="destructive" onClick={cancelOperation}>
-          <StopCircle className="mr-2 h-4 w-4" />
-          Interrompi Operazione
-        </Button>
-      </CardFooter>
-    </Card>
-  );
+function getSeverityIcon(severity: string): string {
+  const icons: Record<string, string> = { critical: '🔴', high: '🟠', medium: '🟡' };
+  return icons[severity] || '⚪';
 }

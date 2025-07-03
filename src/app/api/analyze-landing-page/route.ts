@@ -1,156 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { analyzeLandingPage } from '@/lib/landing-page-analyzer';
+import { analyzeLandingPage, findStructuralIssues } from '@/lib/landing-page-analyzer';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Variabile per gestire l'interruzione
+let abortController: AbortController | null = null;
 
 export async function POST(req: NextRequest) {
-  try {
-    const { url } = await req.json();
-    
+  const body = await req.json();
+  const { url, action, extractedData } = body;
+
+  // Gestione dell'interruzione
+  if (action === 'abort') {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
+    return NextResponse.json({ success: true, message: 'Analisi interrotta' });
+  }
+
+  // Azione 1: Estrazione dei dati dalla pagina web
+  if (action === 'extract') {
     if (!url) {
-      return NextResponse.json(
-        { error: 'URL richiesto' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'URL mancante' }, { status: 400 });
     }
+    try {
+      console.log(`Inizio estrazione per: ${url}`);
+      const data = await analyzeLandingPage(url);
+      const issues = findStructuralIssues(data.data);
+      console.log(`Estrazione completata. Trovati ${issues.length} problemi.`);
+      
+      return NextResponse.json({
+        success: true,
+        extractedData: data,
+        issues: issues,
+      });
+    } catch (error: any) {
+      console.error("Errore nell'API (extract):", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
 
-    // Analizza la landing page con Puppeteer per estrarre gli elementi rilevanti
-    console.log(`Inizio analisi della landing page: ${url}`);
-    const { data: landingData, screenshot } = await analyzeLandingPage(url);
-    console.log('Estrazione dati dalla landing page completata');
+  // Azione 2: Analisi con l'intelligenza artificiale
+  if (action === 'analyze') {
+    if (!extractedData) {
+      return NextResponse.json({ error: 'Dati estratti mancanti' }, { status: 400 });
+    }
     
-    // Crea un prompt ottimizzato basato sui dati estratti
-    const prompt = `
-      Analizza questa landing page all'URL: ${url}
-      
-      ELEMENTI CHIAVE ESTRATTI:
-      
-      1. MESSAGGIO:
-      Titolo pagina: ${landingData.title}
-      H1: ${landingData.headlines.h1.join(' | ')}
-      H2 principali: ${landingData.headlines.h2.join(' | ')}
-      
-      2. HERO SECTION:
-      ${landingData.heroSection ? 'Presente' : 'Non identificata'}
-      
-      3. BENEFIT E COPY:
-      ${landingData.benefitSections.length > 0 ? 
-        `Sezioni benefit trovate: ${landingData.benefitSections.length}` : 
-        'Nessuna sezione benefit chiaramente identificata'}
-      
-      4. SOCIAL PROOF:
-      Testimonianze: ${landingData.socialProof.testimonials.length}
-      Loghi client: ${landingData.socialProof.logos.length}
-      Trust badges: ${landingData.socialProof.trustBadges.length}
-      
-      5. CTA:
-      ${landingData.ctas.map(cta => `"${cta.text}" (${cta.isAboveTheFold ? 'above the fold' : 'below the fold'})`).join('\n      ')}
-      
-      6. FORM:
-      Form trovati: ${landingData.contactForms.length}
-      ${landingData.contactForms.length > 0 ? 
-        `Campi nel primo form: ${landingData.contactForms[0].fields.map(f => f.type).join(', ')}` : 
-        ''}
-      
-      7. UX:
-      Colori principali: ${landingData.colorPalette.slice(0, 5).join(', ')}
-      Navigazione: ${landingData.navigation ? 'Presente' : 'Non identificata'}
-      
-      Analizza questi elementi estratti secondo i 7 criteri chiave per una landing page efficace:
-      1. Chiarezza del Messaggio e Proposta di Valore
-      2. Impatto Visivo (Hero Section)
-      3. Testo Persuasivo e Benefici
-      4. Prova Sociale
-      5. Call-to-Action
-      6. Modulo di Contatto
-      7. Esperienza Utente e Performance
-    `;
+    abortController = new AbortController();
     
-    console.log('Invio richiesta a OpenAI');
-    // Chiamata all'API OpenAI con il prompt ottimizzato
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4', // Usa il modello standard, non vision (più economico)
-      messages: [
-        {
-          role: 'system',
-          content: `Sei un esperto di marketing specializzato nell'analisi di landing page.
-            Analizza la landing page fornita secondo i criteri specificati.
-            Organizza la tua risposta in sezioni chiaramente definite:
-            - messageClarity: Analisi dell'headline, sub-headline e proposta di valore
-            - visualImpact: Analisi dell'immagine hero e impatto visivo
-            - persuasiveCopy: Analisi del testo persuasivo e focus sui benefici
-            - socialProof: Analisi delle testimonianze, loghi, certificazioni
-            - callToAction: Analisi dei CTA, posizionamento e testo
-            - contactForm: Analisi del form di contatto
-            - userExperience: Analisi dell'UX e performance
-            - recommendations: Suggerimenti specifici per migliorare la landing page`
+    try {
+      const prompt = `
+        Sei un esperto di marketing specializzato nell'analisi di landing page.
+        Analizza i seguenti dati estratti da una landing page e fornisci una valutazione dettagliata.
+        URL della pagina: ${url}
+        Dati estratti: ${JSON.stringify(extractedData.data, null, 2)}
+
+        Organizza la tua risposta in un oggetto JSON con le seguenti chiavi:
+        - "messageClarity": "Analisi dell'headline, sub-headline e proposta di valore.",
+        - "visualImpact": "Analisi dell'immagine hero e impatto visivo.",
+        - "persuasiveCopy": "Analisi del testo persuasivo e focus sui benefici.",
+        - "socialProof": "Analisi delle testimonianze, loghi, certificazioni.",
+        - "callToAction": "Analisi dei CTA, posizionamento e testo.",
+        - "contactForm": "Analisi del form di contatto.",
+        - "userExperience": "Analisi dell'UX e performance.",
+        - "recommendations": "Un paragrafo con i 3 suggerimenti più importanti per migliorare la pagina."
+      `;
+
+      console.log('Invio richiesta a OpenRouter con Gemini 2.5 Pro per analisi...');
+      const response = await fetch(`${process.env.OPENROUTER_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 2000,
-    });
-    console.log('Risposta ricevuta da OpenAI');
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-pro',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: "json_object" }, // Chiediamo esplicitamente un JSON
+          max_tokens: 4000,
+        }),
+        signal: abortController.signal,
+      });
 
-    // Estrai e processa la risposta
-    const content = response.choices[0]?.message?.content || '';
-    const sections = parseSections(content);
-    
-    return NextResponse.json({
-      analysis: content,
-      sections,
-      tokens: {
-        prompt_tokens: response.usage?.prompt_tokens || 0,
-        completion_tokens: response.usage?.completion_tokens || 0,
-        total_tokens: response.usage?.total_tokens || 0
-      },
-      screenshot // Includi lo screenshot come riferimento
-    });
-    
-  } catch (error: any) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: error.message || "Errore nell'analisi della landing page" },
-      { status: 500 }
-    );
-  }
-}
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Errore nella chiamata a OpenRouter');
+      }
 
-// Helper per estrarre le sezioni dalla risposta
-function parseSections(content: string) {
-  const sections = {
-    messageClarity: extractSection(content, 'messageClarity'),
-    visualImpact: extractSection(content, 'visualImpact'),
-    persuasiveCopy: extractSection(content, 'persuasiveCopy'),
-    socialProof: extractSection(content, 'socialProof'),
-    callToAction: extractSection(content, 'callToAction'),
-    contactForm: extractSection(content, 'contactForm'),
-    userExperience: extractSection(content, 'userExperience'),
-    recommendations: extractSection(content, 'recommendations')
-  };
-  
-  return sections;
-}
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content || '{}';
+      
+      let sections = {};
+      try {
+        sections = JSON.parse(content);
+      } catch (e) {
+        console.error("La risposta dell'AI non era un JSON valido:", content);
+        throw new Error("La risposta dell'AI non è in un formato JSON valido.");
+      }
 
-function extractSection(content: string, sectionName: string) {
-  // Pattern di ricerca flessibile
-  const patterns = [
-    new RegExp(`${sectionName}:[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is'),
-    new RegExp(`${sectionName}[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is'),
-    new RegExp(`${sectionName.replace(/([A-Z])/g, ' $1').trim()}:[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is')
-  ];
-  
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match && match[1]) {
-      return match[1].trim();
+      console.log('Analisi AI completata.');
+      return NextResponse.json({
+        success: true,
+        sections: sections,
+        tokens: data.usage,
+      });
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Analisi AI interrotta.');
+        return NextResponse.json({ error: 'Analisi interrotta dall\'utente' }, { status: 499 });
+      }
+      console.error("Errore nell'API (analyze):", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    } finally {
+      abortController = null;
     }
   }
-  
-  return '';
+
+  return NextResponse.json({ error: 'Azione non valida' }, { status: 400 });
 }
