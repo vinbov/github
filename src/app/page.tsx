@@ -53,7 +53,6 @@ export default function HomePage() {
   const [tool3ApifyActorId, setTool3ApifyActorId] = useState('curious_coder~facebook-ads-library-scraper');
   const [tool3FbAdsUrl, setTool3FbAdsUrl] = useState('');
   const [tool3MaxAdsToProcess, setTool3MaxAdsToProcess] = useState(10);
-  const [tool3OpenAIApiKey, setTool3OpenAIApiKey] = useState('');
   const [tool3ScrapedAds, setTool3ScrapedAds] = useState<ScrapedAd[]>([]);
   const [tool3AdsWithAnalysis, setTool3AdsWithAnalysis] = useState<AdWithAngleAnalysis[]>([]);
 
@@ -66,7 +65,6 @@ export default function HomePage() {
 
   // --- State for Tool 5 Landing ---
   const [tool5LandingResults, setTool5LandingResults] = useState<LandingPageWithAnalysis[]>([]);
-  const [tool5LandingOpenAIApiKey, setTool5LandingOpenAIApiKey] = useState('');
 
 
   return (
@@ -131,8 +129,6 @@ export default function HomePage() {
                 setFbAdsUrl={setTool3FbAdsUrl}
                 maxAdsToProcess={tool3MaxAdsToProcess}
                 setMaxAdsToProcess={setTool3MaxAdsToProcess}
-                openAIApiKey={tool3OpenAIApiKey}
-                setOpenAIApiKey={setTool3OpenAIApiKey}
                 scrapedAds={tool3ScrapedAds}
                 setScrapedAds={setTool3ScrapedAds}
                 adsWithAnalysis={tool3AdsWithAnalysis}
@@ -191,8 +187,6 @@ export default function HomePage() {
           {activeTool === 'tool5Landing' && (
             <div id="tool5Landing-container">
               <Tool5LandingAnalyzer
-                openAIApiKey={tool5LandingOpenAIApiKey}
-                setOpenAIApiKey={setTool5LandingOpenAIApiKey}
                 analyzedPages={tool5LandingResults}
                 setAnalyzedPages={setTool5LandingResults}
               />

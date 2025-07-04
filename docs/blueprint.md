@@ -1,21 +1,41 @@
-# **App Name**: SEO Toolkit Pro
+# SEO Toolkit Pro — Blueprint Tecnico
 
-## Core Features:
+## Integrazione AI (2024)
 
-- CSV Upload: User interface to upload CSV files, supporting up to 5 competitor files and the user's own site file.
-- Report Generation: Generates comprehensive SEO reports that can be downloaded in CSV format.
-- AI-Powered Keyword Analysis: Leverages OpenAI to analyze the relevance and strategic SEO priority of keywords based on several SEO metrics using a prompt. The LLM will reason whether or not each field in the data justifies increasing a score.
-- Apify Integration: Allows users to input an Apify API token and Facebook Ads Library URL to extract ad data.
-- AI-Driven Ad Angle Analysis tool: Uses AI to analyze marketing angles in Facebook ad copy, utilizing the 7C framework (Chiarezza, Coinvolgimento, Concretezza, Coerenza, Credibilità, CTA, Contesto), assigning scores for each C, calculating a total score, and providing qualitative analysis. The LLM will use data to inform the different scores the 7C analysis.
-- Sortable Tables: Dynamic display of results with sortable and filterable tables for easy data review.
-- User-Friendly Design: Provides an intuitive and user-friendly interface for SEO analysis, including drag-and-drop functionality and clear report visualizations.
+### Modello AI utilizzato
+- Tutte le analisi AI (tool 3, tool 4, tool 5, chat, ecc.) usano **Gemini 2.5 Pro** tramite [Genkit](https://github.com/genkit-dev/genkit) e GoogleAI.
+- Il modello usato nei flow è `googleai/gemini-2.5-pro`.
 
-## Style Guidelines:
+### Configurazione ambiente
+- È richiesta la variabile d'ambiente `GOOGLE_API_KEY`.
+- Ottieni la chiave su [Google AI Studio](https://makersuite.google.com/app/apikey).
+- Esempio `.env`:
+  ```
+  GOOGLE_API_KEY=la-tua-chiave-google
+  ```
 
-- Primary color: Soft sky blue (#77B5FE) to convey trust and intelligence.
-- Background color: Light, airy off-white (#F5F5F5) to ensure readability and reduce eye strain.
-- Accent color: Warm orange (#FFB347) used for key actions and highlights to draw attention without overwhelming.
-- Clean and modern sans-serif fonts optimized for readability on various screen sizes.
-- Simple and professional icon set to enhance the usability and aesthetic appeal.
-- Grid-based layout that ensures consistent spacing and alignment.
-- Subtle transitions and loading animations to improve user experience during data processing and analysis.
+### Prompt e compatibilità
+- Tutti i prompt sono ottimizzati per Gemini (risposte strutturate, JSON, ecc).
+- I flow Genkit sono usati per tutte le chiamate AI.
+- Non sono più supportate chiavi OpenAI né modelli OpenAI.
+
+### Tool coperti
+- **Tool 3**: Analisi angle Facebook Ads (Metodo 7C)
+- **Tool 4**: Analisi landing page GSC
+- **Tool 5**: Analisi landing page avanzata (10 Metrics)
+- **Chat AI**: Risposte fornite da Gemini
+
+### Troubleshooting
+- Se le analisi AI non funzionano, verifica la variabile `GOOGLE_API_KEY`.
+- Consulta la documentazione Genkit o GoogleAI per errori di autenticazione o limiti API.
+
+---
+
+## Note di migrazione
+- Tutte le chiamate fetch a OpenAI sono state rimosse.
+- Tutti i riferimenti a OpenAI API Key sono stati eliminati dalla UI e dalla documentazione.
+- La UI ora mostra solo riferimenti a Gemini/GoogleAI.
+
+---
+
+Per dettagli sui singoli tool, vedi la documentazione nelle rispettive cartelle o il README principale.

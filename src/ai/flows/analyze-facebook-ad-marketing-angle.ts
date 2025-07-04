@@ -1,10 +1,5 @@
-
 /**
- * @fileOverview A Facebook Ad marketing angle analyzer flow, using OpenAI.
- *
- * - analyzeFacebookAdMarketingAngle - A function that handles the Facebook Ad marketing angle analysis process.
- * - AnalyzeFacebookAdMarketingAngleInput - The input type for the analyzeFacebookAdMarketingAngle function.
- * - AnalyzeFacebookAdMarketingAngleOutput - The return type for the analyzeFacebookAdMarketingAngle function.
+ * @fileOverview A Facebook Ad marketing angle analyzer flow, using Gemini 2.5 Pro (GoogleAI).
  */
 
 'use server';
@@ -48,7 +43,7 @@ const analyzeFacebookAdMarketingAnglePrompt = ai.definePrompt({
   name: 'analyzeFacebookAdMarketingAnglePrompt',
   input: {schema: AnalyzeFacebookAdMarketingAngleInputSchema},
   output: {schema: AnalyzeFacebookAdMarketingAngleOutputSchema},
-  model: 'openai/gpt-4o', // Questo modello sarà usato se il plugin OpenAI è attivo
+  model: 'googleai/gemini-2.5-pro',
   prompt: `Analyze the following text and title (if available) using the "Metodo 7C" framework.
 
 Text: {{{adText}}}
@@ -56,11 +51,11 @@ Title: {{{adTitle}}}
 
 Framework di valutazione copy AD – Metodo 7C:
 🎯 C1 Chiarezza: Il messaggio è comprensibile in meno di 5 secondi? (Punteggio 0-2)
-🧲 C2 Coinvolgimento (Hook): Il primo rigo attira l’attenzione o incuriosisce? (Punteggio 0-2)
-💎 C3 Concretezza (Benefit chiari): È chiaro il vantaggio per l’utente? È concreto, misurabile? (Punteggio 0-2)
+🧲 C2 Coinvolgimento (Hook): Il primo rigo attira l'attenzione o incuriosisce? (Punteggio 0-2)
+💎 C3 Concretezza (Benefit chiari): È chiaro il vantaggio per l'utente? È concreto, misurabile? (Punteggio 0-2)
 👤 C4 Coerenza col target: Usa un tono e un linguaggio adatto al pubblico (immagina un pubblico generico se non specificato)? (Punteggio 0-2)
 🧠 C5 Credibilità: Ci sono elementi di fiducia (numeri, testimonianze, dati, specificità)? (Punteggio 0-2)
-🚀 C6 Call To Action (CTA): L’invito all’azione è chiaro, diretto e contestuale? (Punteggio 0-2)
+🚀 C6 Call To Action (CTA): L'invito all'azione è chiaro, diretto e contestuale? (Punteggio 0-2)
 📱 C7 Contesto (platform-fit): Il testo sembra ottimizzato per una piattaforma social come Facebook/Instagram (concisione, emoji appropriate, hashtag se pertinenti)? (Punteggio 0-2)
 
 Per ciascuna "C", fornisci un punteggio da 0 a 2 (0 = assente, 1 = presente ma debole, 2 = presente e forte).
@@ -116,11 +111,12 @@ const analyzeFacebookAdMarketingAngleFlow = ai.defineFlow(
             console.error("analyzeFacebookAdMarketingAngleFlow: Errore nel parsing dell'output JSON grezzo:", parseError);
             console.error("analyzeFacebookAdMarketingAngleFlow: Output grezzo ricevuto:", result.output);
             // Se il parsing fallisce, tentiamo di costruire un output di errore strutturato ma includiamo il raw output.
-             return {
+            const raw = typeof result.output === 'string' ? result.output : '';
+            return {
                 c1Clarity: 0, c2Engagement: 0, c3Concreteness: 0, c4Coherence: 0, c5Credibility: 0, c6CallToAction: 0, c7Context: 0,
                 totalScore: 0,
                 evaluation: "Errore Output AI (Parsing Fallito)",
-                detailedAnalysis: `L'AI ha restituito una stringa non JSON valida. Contenuto ricevuto: ${result.output.substring(0, 500)}${result.output.length > 500 ? '...' : ''}`,
+                detailedAnalysis: `L'AI ha restituito una stringa non JSON valida. Contenuto ricevuto: ${raw.substring(0, 500)}${raw.length > 500 ? '...' : ''}`,
             };
         }
       } else {
@@ -134,9 +130,7 @@ const analyzeFacebookAdMarketingAngleFlow = ai.defineFlow(
     } catch (flowError: any) {
       console.error("analyzeFacebookAdMarketingAngleFlow: Errore durante l'esecuzione del prompt AI:", flowError);
       let detailedErrorMessage = `Impossibile eseguire l'analisi dell'angle. Errore originale: ${flowError.message}`;
-      if (flowError.message?.toLowerCase().includes('openai') && (flowError.message?.includes('not found') || flowError.message?.includes('not configured') || flowError.message?.includes('plugin'))) {
-        detailedErrorMessage = `Impossibile eseguire l'analisi dell'angle. Il plugin OpenAI richiesto ('@genkit-ai/openai') potrebbe non essere installato, non configurato correttamente, o il modello specificato non è accessibile. Controlla la console e lo stato del pacchetto '@genkit-ai/openai'. Errore originale: ${flowError.message}`;
-      }
+      // Rimuovo gestione specifica plugin OpenAI
       return {
         c1Clarity: 0, c2Engagement: 0, c3Concreteness: 0, c4Coherence: 0, c5Credibility: 0, c6CallToAction: 0, c7Context: 0,
         totalScore: 0,
