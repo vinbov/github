@@ -52,7 +52,6 @@ export function Tool3Scraper({
   const [loadingMessage, setLoadingMessage] = useState("");
   const [apifyStatus, setApifyStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [openAIPluginMissingError, setOpenAIPluginMissingError] = useState(false);
   const [selectedAdIds, setSelectedAdIds] = useState<Set<string>>(new Set());
   
   const [totalAdsInCurrentBatch, setTotalAdsInCurrentBatch] = useState(0);
@@ -71,7 +70,6 @@ export function Tool3Scraper({
     setLoadingMessage("Avvio scraping con Apify...");
     setApifyStatus("Stato: Inizializzazione...");
     setError(null);
-    setOpenAIPluginMissingError(false);
     setScrapedAds([]); 
     setAdsWithAnalysis([]); 
     setSelectedAdIds(new Set());
@@ -496,19 +494,6 @@ export function Tool3Scraper({
         <p className="text-muted-foreground mt-2">Estrai dati dalla Facebook Ads Library e analizza gli angle di marketing con Gemini.</p>
       </header>
 
-      {openAIPluginMissingError && (
-        <Alert variant="destructive" className="my-4">
-          <PackageX className="h-4 w-4" />
-          <AlertTitle>Plugin OpenAI Mancante o Non Funzionante</AlertTitle>
-          <AlertDescription>
-            L'analisi dell'angle degli annunci non può essere eseguita perché il plugin Genkit per OpenAI (`@genkit-ai/openai`)
-            non è stato installato correttamente. Questo è probabilmente dovuto a problemi con `npm install` che non riesce a trovare il pacchetto.
-            Verifica la configurazione del tuo ambiente `npm` (registro, cache, connessione di rete) e prova a reinstallare i pacchetti
-            o il plugin `@genkit-ai/openai` manualmente. Fino a quando il plugin non sarà installato, questa funzionalità rimarrà non disponibile.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader><CardTitle>Configurazione Scraping & Analisi</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -527,17 +512,6 @@ export function Tool3Scraper({
           <div>
             <label htmlFor="maxAdsToProcessTool3" className="block text-sm font-medium text-foreground mb-1">Numero Annunci da Recuperare (max 100)</label>
             <Input type="number" id="maxAdsToProcessTool3" value={maxAdsToProcess} onChange={(e) => setMaxAdsToProcess(Math.min(100, Math.max(1, parseInt(e.target.value))))} min="1" max="100" />
-          </div>
-           <div>
-            <label htmlFor="openAIApiKeyTool3" className="block text-sm font-medium text-foreground mb-1">OpenAI API Key</label> 
-            <Input 
-              type="password" 
-              id="openAIApiKeyTool3"
-              value={""}
-              onChange={(e) => {}}
-              placeholder="La tua chiave API OpenAI (es. sk-...)" 
-            />
-            <p className="text-xs text-muted-foreground mt-1">Usata per l'analisi 7C con Gemini 2.5 Pro (Google AI).</p>
           </div>
         </CardContent>
       </Card>
@@ -596,9 +570,9 @@ export function Tool3Scraper({
             <div className="text-center mt-8">
               <Button 
                 onClick={runAngleAnalysis} 
-                disabled={isLoadingAnalysis || selectedAdIds.size === 0 || openAIPluginMissingError} 
+                disabled={isLoadingAnalysis || selectedAdIds.size === 0} 
                 className="action-button bg-purple-600 hover:bg-purple-700 text-white text-lg"
-                title={selectedAdIds.size === 0 ? "Seleziona almeno un annuncio per l'analisi" : (openAIPluginMissingError ? "Funzionalità OpenAI non disponibile a causa di errore plugin" : "Analizza angle degli annunci selezionati con Gemini")}
+                title={selectedAdIds.size === 0 ? "Seleziona almeno un annuncio per l'analisi" : "Analizza angle degli annunci selezionati con Gemini"}
               >
                 {isLoadingAnalysis ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Bot className="mr-2 h-5 w-5" />}
                 {isLoadingAnalysis ? "Analisi Angle (Gemini)..." : `Analizza ${selectedAdIds.size} Annunci Selezionati (7C con Gemini)`} 
