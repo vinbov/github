@@ -27,8 +27,6 @@ interface Tool3ScraperProps {
   setFbAdsUrl: (value: string) => void;
   maxAdsToProcess: number;
   setMaxAdsToProcess: (value: number) => void;
-  openAIApiKey: string;
-  setOpenAIApiKey: (value: string) => void;
   scrapedAds: ScrapedAd[];
   setScrapedAds: React.Dispatch<React.SetStateAction<ScrapedAd[]>>;
   adsWithAnalysis: AdWithAngleAnalysis[];
@@ -44,8 +42,6 @@ export function Tool3Scraper({
   setFbAdsUrl,
   maxAdsToProcess,
   setMaxAdsToProcess,
-  openAIApiKey,
-  setOpenAIApiKey,
   scrapedAds,
   setScrapedAds,
   adsWithAnalysis,
@@ -363,18 +359,9 @@ export function Tool3Scraper({
       return;
     }
     
-    const currentOpenAIApiKey = openAIApiKey.trim();
-    if (!currentOpenAIApiKey) {
-      setError("Inserisci la tua OpenAI API Key per l'analisi dell'angle.");
-      toast({ title: "OpenAI API Key Mancante", description: "Inserisci la OpenAI API Key per l'analisi.", variant: "destructive" });
-      console.log("Tool3: runAngleAnalysis - OpenAI API Key mancante.");
-      return;
-    }
-    console.log("Tool3: runAngleAnalysis - API Key fornita.");
-
     isAnalysisStoppedRef.current = false;
     setIsLoadingAnalysis(true);
-    setLoadingMessage(`Analisi angle in corso per ${selectedAdIds.size} annunci selezionati con OpenAI...`);
+    setLoadingMessage(`Analisi angle in corso per ${selectedAdIds.size} annunci selezionati con Gemini...`);
     setError(null);
     setAdsProcessedInCurrentBatch(0);
     setTotalAdsInCurrentBatch(selectedAdIds.size);
@@ -402,7 +389,7 @@ export function Tool3Scraper({
         const analysisResult = await analyzeAdAngleAction({
           adText: ad.testo,
           adTitle: ad.titolo,
-        }, currentOpenAIApiKey);
+        });
         
         console.log(`Tool3: runAngleAnalysis - Risultato da analyzeAdAngleAction per ad ID: ${ad.id}:`, analysisResult);
         setAdsProcessedInCurrentBatch(prev => prev + 1);
@@ -412,7 +399,7 @@ export function Tool3Scraper({
         console.error(`Tool3: runAngleAnalysis - Errore analisi angle per ad ID "${ad.id}":`, e);
         setAdsProcessedInCurrentBatch(prev => prev + 1);
         setLoadingMessage(`Analisi angle: ${adsProcessedInCurrentBatch + 1} di ${totalAdsInCurrentBatch} completati (con errori)...`);
-        return { ...ad, angleAnalysis: undefined, analysisError: e.message || "Errore sconosciuto durante analisi AI con OpenAI" };
+        return { ...ad, angleAnalysis: undefined, analysisError: e.message || "Errore sconosciuto durante analisi AI con Gemini" };
       }
     });
 
@@ -443,8 +430,8 @@ export function Tool3Scraper({
 
     } catch (e: any) {
       console.error("Tool3: runAngleAnalysis - Errore durante Promise.all o aggiornamento stato:", e);
-      setError(`Errore durante l'analisi degli angle (OpenAI): ${e.message}`);
-      toast({ title: "Errore Analisi Angle (OpenAI)", description: e.message, variant: "destructive" });
+      setError(`Errore durante l'analisi degli angle (Gemini): ${e.message}`);
+      toast({ title: "Errore Analisi Angle (Gemini)", description: e.message, variant: "destructive" });
     } finally {
       console.log("Tool3: runAngleAnalysis - Blocco finally eseguito.");
       setIsLoadingAnalysis(false);
@@ -506,7 +493,7 @@ export function Tool3Scraper({
     <div className="space-y-8">
       <header className="text-center">
         <h2 className="text-3xl font-bold" style={{ color: 'hsl(var(--sky-600))' }}>Facebook Ads Library Scraper (via Apify)</h2>
-        <p className="text-muted-foreground mt-2">Estrai dati dalla Facebook Ads Library e analizza gli angle di marketing con OpenAI.</p>
+        <p className="text-muted-foreground mt-2">Estrai dati dalla Facebook Ads Library e analizza gli angle di marketing con Gemini.</p>
       </header>
 
       {openAIPluginMissingError && (
@@ -546,11 +533,11 @@ export function Tool3Scraper({
             <Input 
               type="password" 
               id="openAIApiKeyTool3"
-              value={openAIApiKey}
-              onChange={(e) => setOpenAIApiKey(e.target.value)}
+              value={""}
+              onChange={(e) => {}}
               placeholder="La tua chiave API OpenAI (es. sk-...)" 
             />
-            <p className="text-xs text-muted-foreground mt-1">Usata per l'analisi 7C con i modelli OpenAI (chiamata diretta).</p>
+            <p className="text-xs text-muted-foreground mt-1">Usata per l'analisi 7C con Gemini 2.5 Pro (Google AI).</p>
           </div>
         </CardContent>
       </Card>
@@ -611,10 +598,10 @@ export function Tool3Scraper({
                 onClick={runAngleAnalysis} 
                 disabled={isLoadingAnalysis || selectedAdIds.size === 0 || openAIPluginMissingError} 
                 className="action-button bg-purple-600 hover:bg-purple-700 text-white text-lg"
-                title={selectedAdIds.size === 0 ? "Seleziona almeno un annuncio per l'analisi" : (openAIPluginMissingError ? "Funzionalità OpenAI non disponibile a causa di errore plugin" : "Analizza angle degli annunci selezionati con OpenAI")}
+                title={selectedAdIds.size === 0 ? "Seleziona almeno un annuncio per l'analisi" : (openAIPluginMissingError ? "Funzionalità OpenAI non disponibile a causa di errore plugin" : "Analizza angle degli annunci selezionati con Gemini")}
               >
                 {isLoadingAnalysis ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Bot className="mr-2 h-5 w-5" />}
-                {isLoadingAnalysis ? "Analisi Angle (OpenAI)..." : `Analizza ${selectedAdIds.size} Annunci Selezionati (7C con OpenAI)`} 
+                {isLoadingAnalysis ? "Analisi Angle (Gemini)..." : `Analizza ${selectedAdIds.size} Annunci Selezionati (7C con Gemini)`} 
               </Button>
             </div>
           </CardContent>
@@ -625,7 +612,7 @@ export function Tool3Scraper({
         <Card className="mt-6">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-xl">Risultati Analisi Angle (Metodo 7C con OpenAI)</CardTitle>
+              <CardTitle className="text-xl">Risultati Analisi Angle (Metodo 7C con Gemini)</CardTitle>
               <CardDescription>
                 Visualizzati i risultati per {adsWithAnalysis.filter(ad => ad.angleAnalysis || ad.analysisError).length} annunci.
               </CardDescription>

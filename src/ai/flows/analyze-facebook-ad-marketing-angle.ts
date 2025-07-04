@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview A Facebook Ad marketing angle analyzer flow, using OpenAI.
  *
@@ -48,7 +47,7 @@ const analyzeFacebookAdMarketingAnglePrompt = ai.definePrompt({
   name: 'analyzeFacebookAdMarketingAnglePrompt',
   input: {schema: AnalyzeFacebookAdMarketingAngleInputSchema},
   output: {schema: AnalyzeFacebookAdMarketingAngleOutputSchema},
-  model: 'openai/gpt-4o', // Questo modello sarà usato se il plugin OpenAI è attivo
+  model: 'googleai/gemini-2.5-pro',
   prompt: `Analyze the following text and title (if available) using the "Metodo 7C" framework.
 
 Text: {{{adText}}}
@@ -56,11 +55,11 @@ Title: {{{adTitle}}}
 
 Framework di valutazione copy AD – Metodo 7C:
 🎯 C1 Chiarezza: Il messaggio è comprensibile in meno di 5 secondi? (Punteggio 0-2)
-🧲 C2 Coinvolgimento (Hook): Il primo rigo attira l’attenzione o incuriosisce? (Punteggio 0-2)
-💎 C3 Concretezza (Benefit chiari): È chiaro il vantaggio per l’utente? È concreto, misurabile? (Punteggio 0-2)
+🧲 C2 Coinvolgimento (Hook): Il primo rigo attira l'attenzione o incuriosisce? (Punteggio 0-2)
+💎 C3 Concretezza (Benefit chiari): È chiaro il vantaggio per l'utente? È concreto, misurabile? (Punteggio 0-2)
 👤 C4 Coerenza col target: Usa un tono e un linguaggio adatto al pubblico (immagina un pubblico generico se non specificato)? (Punteggio 0-2)
 🧠 C5 Credibilità: Ci sono elementi di fiducia (numeri, testimonianze, dati, specificità)? (Punteggio 0-2)
-🚀 C6 Call To Action (CTA): L’invito all’azione è chiaro, diretto e contestuale? (Punteggio 0-2)
+🚀 C6 Call To Action (CTA): L'invito all'azione è chiaro, diretto e contestuale? (Punteggio 0-2)
 📱 C7 Contesto (platform-fit): Il testo sembra ottimizzato per una piattaforma social come Facebook/Instagram (concisione, emoji appropriate, hashtag se pertinenti)? (Punteggio 0-2)
 
 Per ciascuna "C", fornisci un punteggio da 0 a 2 (0 = assente, 1 = presente ma debole, 2 = presente e forte).
