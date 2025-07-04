@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { analyzeLandingPage } from '@/lib/landing-page-analyzer';
 import { analyzeLandingPageWithGemini } from '@/ai/flows/analyze-landing-page';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,10 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Analizza la landing page con Puppeteer per estrarre gli elementi rilevanti
-    console.log(`Inizio analisi della landing page: ${url}`);
     const { data: landingData, screenshot } = await analyzeLandingPage(url);
-    console.log('Estrazione dati dalla landing page completata');
-    
     // Prepara l'input per il flow Gemini
     const input = {
       url,
@@ -37,46 +29,10 @@ export async function POST(req: NextRequest) {
       analysis,
       screenshot
     });
-    
   } catch (error: any) {
-    console.error('API error:', error);
     return NextResponse.json(
       { error: error.message || "Errore nell'analisi della landing page" },
       { status: 500 }
     );
   }
-}
-
-// Helper per estrarre le sezioni dalla risposta
-function parseSections(content: string) {
-  const sections = {
-    messageClarity: extractSection(content, 'messageClarity'),
-    visualImpact: extractSection(content, 'visualImpact'),
-    persuasiveCopy: extractSection(content, 'persuasiveCopy'),
-    socialProof: extractSection(content, 'socialProof'),
-    callToAction: extractSection(content, 'callToAction'),
-    contactForm: extractSection(content, 'contactForm'),
-    userExperience: extractSection(content, 'userExperience'),
-    recommendations: extractSection(content, 'recommendations')
-  };
-  
-  return sections;
-}
-
-function extractSection(content: string, sectionName: string) {
-  // Pattern di ricerca flessibile
-  const patterns = [
-    new RegExp(`${sectionName}:[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is'),
-    new RegExp(`${sectionName}[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is'),
-    new RegExp(`${sectionName.replace(/([A-Z])/g, ' $1').trim()}:[\\s\\n]*(.*?)(?=\\n\\w+:|$)`, 'is')
-  ];
-  
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-  }
-  
-  return '';
 }
