@@ -24,30 +24,3 @@ export async function analyzeLandingPageAction(
   // Chiamata diretta al flow Genkit (Gemini)
   return await analyzeLandingPageWithGemini(input);
 }
-
-function parseOpenAIResponse(rawText: string): any {
-  if (!rawText) {
-    return {};
-  }
-
-  try {
-    // Clean the response
-    const cleanedText = rawText.trim();
-    let jsonStart = cleanedText.indexOf('{');
-    let jsonEnd = cleanedText.lastIndexOf('}') + 1;
-    
-    if (jsonStart === -1 || jsonEnd === 0) {
-      throw new Error('No JSON found in response');
-    }
-    
-    const jsonString = cleanedText.substring(jsonStart, jsonEnd);
-    return JSON.parse(jsonString);
-  } catch (error) {
-    console.error('Errore parsing risposta OpenAI:', error);
-    console.error('Raw text:', rawText);
-    return {
-      error: 'Errore parsing risposta AI',
-      rawResponse: rawText
-    };
-  }
-}

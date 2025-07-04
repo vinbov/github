@@ -1,9 +1,5 @@
 /**
- * @fileOverview A Facebook Ad marketing angle analyzer flow, using OpenAI.
- *
- * - analyzeFacebookAdMarketingAngle - A function that handles the Facebook Ad marketing angle analysis process.
- * - AnalyzeFacebookAdMarketingAngleInput - The input type for the analyzeFacebookAdMarketingAngle function.
- * - AnalyzeFacebookAdMarketingAngleOutput - The return type for the analyzeFacebookAdMarketingAngle function.
+ * @fileOverview A Facebook Ad marketing angle analyzer flow, using Gemini 2.5 Pro (GoogleAI).
  */
 
 'use server';
@@ -115,11 +111,12 @@ const analyzeFacebookAdMarketingAngleFlow = ai.defineFlow(
             console.error("analyzeFacebookAdMarketingAngleFlow: Errore nel parsing dell'output JSON grezzo:", parseError);
             console.error("analyzeFacebookAdMarketingAngleFlow: Output grezzo ricevuto:", result.output);
             // Se il parsing fallisce, tentiamo di costruire un output di errore strutturato ma includiamo il raw output.
-             return {
+            const raw = typeof result.output === 'string' ? result.output : '';
+            return {
                 c1Clarity: 0, c2Engagement: 0, c3Concreteness: 0, c4Coherence: 0, c5Credibility: 0, c6CallToAction: 0, c7Context: 0,
                 totalScore: 0,
                 evaluation: "Errore Output AI (Parsing Fallito)",
-                detailedAnalysis: `L'AI ha restituito una stringa non JSON valida. Contenuto ricevuto: ${result.output.substring(0, 500)}${result.output.length > 500 ? '...' : ''}`,
+                detailedAnalysis: `L'AI ha restituito una stringa non JSON valida. Contenuto ricevuto: ${raw.substring(0, 500)}${raw.length > 500 ? '...' : ''}`,
             };
         }
       } else {
@@ -133,9 +130,7 @@ const analyzeFacebookAdMarketingAngleFlow = ai.defineFlow(
     } catch (flowError: any) {
       console.error("analyzeFacebookAdMarketingAngleFlow: Errore durante l'esecuzione del prompt AI:", flowError);
       let detailedErrorMessage = `Impossibile eseguire l'analisi dell'angle. Errore originale: ${flowError.message}`;
-      if (flowError.message?.toLowerCase().includes('openai') && (flowError.message?.includes('not found') || flowError.message?.includes('not configured') || flowError.message?.includes('plugin'))) {
-        detailedErrorMessage = `Impossibile eseguire l'analisi dell'angle. Il plugin OpenAI richiesto ('@genkit-ai/openai') potrebbe non essere installato, non configurato correttamente, o il modello specificato non è accessibile. Controlla la console e lo stato del pacchetto '@genkit-ai/openai'. Errore originale: ${flowError.message}`;
-      }
+      // Rimuovo gestione specifica plugin OpenAI
       return {
         c1Clarity: 0, c2Engagement: 0, c3Concreteness: 0, c4Coherence: 0, c5Credibility: 0, c6CallToAction: 0, c7Context: 0,
         totalScore: 0,
