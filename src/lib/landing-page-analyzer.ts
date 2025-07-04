@@ -1,20 +1,21 @@
+'use server';
+import 'server-only';
+
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 puppeteer.use(StealthPlugin());
 
-// Tipi per i dati e i problemi
-type LandingPageData = {
+// Tipi per i dati
+export type LandingPageData = {
   title: string;
   headlines: { h1: string[]; h2: string[]; };
   ctas: { text: string; isAboveTheFold: boolean; }[];
   contactForms: { fields: { type: string; name: string; label: string; }[]; }[];
   socialProof: { testimonials: string[]; logos: { src: string; alt: string; }[]; };
 };
-type Issue = { category: string; severity: 'critical' | 'high' | 'medium'; issue: string };
 
-
-export async function analyzeLandingPage(url: string): Promise<{ data: LandingPageData }> {
+export async function analyzeLandingPage(url:string): Promise<{ data: LandingPageData }> {
   const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
@@ -63,45 +64,4 @@ export async function analyzeLandingPage(url: string): Promise<{ data: LandingPa
   } finally {
     await browser.close();
   }
-}
-
-export function findStructuralIssues(data: LandingPageData): Issue[] {
-  const issues: Issue[] = [];
-
-  // 1. Chiarezza del Messaggio
-  if (data.headlines.h1.length === 0) {
-    issues.push({ category: 'messageClarity', severity: 'critical', issue: 'Manca un titolo H1, fondamentale per la SEO e la chiarezza.' });
-  }
-  if (data.headlines.h1.length > 1) {
-    issues.push({ category: 'messageClarity', severity: 'high', issue: `Sono presenti ${data.headlines.h1.length} titoli H1. Dovrebbe essercene solo uno.` });
-  }
-  if (!data.title) {
-    issues.push({ category: 'messageClarity', severity: 'high', issue: 'Manca il meta-titolo della pagina (<title>).' });
-  }
-
-  // 2. Call to Action
-  if (data.ctas.length === 0) {
-    issues.push({ category: 'callToAction', severity: 'critical', issue: 'Nessuna Call-to-Action (CTA) trovata sulla pagina.' });
-  }
-  const ctasAboveFold = data.ctas.filter(cta => cta.isAboveTheFold).length;
-  if (ctasAboveFold === 0 && data.ctas.length > 0) {
-    issues.push({ category: 'callToAction', severity: 'high', issue: 'Nessuna Call-to-Action (CTA) è visibile "above the fold" (senza scrollare).' });
-  }
-
-  // 3. Form di Contatto
-  if (data.contactForms.length === 0) {
-    issues.push({ category: 'contactForm', severity: 'medium', issue: 'Nessun form di contatto trovato. Potrebbe essere intenzionale, ma è un elemento chiave per la lead generation.' });
-  } else {
-    const form = data.contactForms[0];
-    if (form.fields.length > 6) {
-      issues.push({ category: 'contactForm', severity: 'medium', issue: `Il primo form di contatto ha ${form.fields.length} campi, il che potrebbe ridurre le conversioni.` });
-    }
-  }
-
-  // 4. Prova Sociale
-  if (data.socialProof.testimonials.length === 0 && data.socialProof.logos.length === 0) {
-    issues.push({ category: 'socialProof', severity: 'medium', issue: 'Nessuna prova sociale evidente (testimonianze, loghi clienti) trovata.' });
-  }
-
-  return issues;
 }

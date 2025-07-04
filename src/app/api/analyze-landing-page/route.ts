@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeLandingPage, findStructuralIssues } from '@/lib/landing-page-analyzer';
+import { analyzeLandingPage, type LandingPageData } from '@/lib/landing-page-analyzer';
 
-// Variabile per gestire l'interruzione della chiamata API
+// --- TIPI E FUNZIONE SPOSTATI QUI ---
+type Issue = { category: string; severity: 'critical' | 'high' | 'medium'; issue: string };
+
+function findStructuralIssues(data: LandingPageData): Issue[] {
+  const issues: Issue[] = [];
+  if (data.headlines.h1.length === 0) issues.push({ category: 'messageClarity', severity: 'critical', issue: 'Manca un titolo H1.' });
+  if (data.headlines.h1.length > 1) issues.push({ category: 'messageClarity', severity: 'high', issue: `Ci sono ${data.headlines.h1.length} H1. Dovrebbe essercene solo uno.` });
+  if (!data.title) issues.push({ category: 'messageClarity', severity: 'high', issue: 'Manca il meta-titolo della pagina.' });
+  if (data.ctas.length === 0) issues.push({ category: 'callToAction', severity: 'critical', issue: 'Nessuna Call-to-Action trovata.' });
+  const ctasAboveFold = data.ctas.filter(cta => cta.isAboveTheFold).length;
+  if (ctasAboveFold === 0 && data.ctas.length > 0) issues.push({ category: 'callToAction', severity: 'high', issue: 'Nessuna CTA è visibile "above the fold".' });
+  if (data.contactForms.length === 0) issues.push({ category: 'contactForm', severity: 'medium', issue: 'Nessun form di contatto trovato.' });
+  else if (data.contactForms[0].fields.length > 6) issues.push({ category: 'contactForm', severity: 'medium', issue: `Il form ha troppi campi (${data.contactForms[0].fields.length}).` });
+  if (data.socialProof.testimonials.length === 0 && data.socialProof.logos.length === 0) issues.push({ category: 'socialProof', severity: 'medium', issue: 'Nessuna prova sociale evidente trovata.' });
+  return issues;
+}
+// --- FINE SEZIONE SPOSTATA ---
+
 let abortController: AbortController | null = null;
 
 export async function POST(req: NextRequest) {
+  // ... il resto del file rimane invariato ...
+// ... existing code...
   const body = await req.json();
   const { url, action, extractedData } = body;
 
