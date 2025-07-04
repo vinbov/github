@@ -1,120 +1,141 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeLandingPage, findStructuralIssues } from '@/lib/landing-page-analyzer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-// Variabile per gestire l'interruzione
-let abortController: AbortController | null = null;
+puppeteer.use(StealthPlugin());
+
+// ... (le funzioni analyzeLandingPage e findStructuralIssues rimangono qui)
+
+async function analyzeLandingPage(url: string) {
+  // ... codice esistente di analyzeLandingPage
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 800 });
+  await page.goto(url, { waitUntil: 'networkidle2' });
+
+  const data = await page.evaluate(() => {
+    const getElementText = (selector: string) => document.querySelector(selector)?.textContent?.trim() || '';
+    const getAllElementsText = (selector: string) => Array.from(document.querySelectorAll(selector)).map(el => el.textContent?.trim() || '');
+
+    const getElementData = (selector: string, attribute: string) => {
+        return Array.from(document.querySelectorAll(selector)).map(el => ({
+            text: el.textContent?.trim() || '',
+            [attribute]: el.getAttribute(attribute) || ''
+        }));
+    };
+
+    const isAboveTheFold = (element: Element | null): boolean => {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        return rect.top < window.innerHeight;
+    };
+
+    const ctas = Array.from(document.querySelectorAll('a, button')).map(el => ({
+        text: el.textContent?.trim() || '',
+        isAboveTheFold: isAboveTheFold(el)
+    })).filter(cta => cta.text.length > 5 && cta.text.length < 50);
+
+    const contactForms = Array.from(document.querySelectorAll('form')).map(form => ({
+        fields: Array.from(form.querySelectorAll('input, textarea, select')).map(field => ({
+            type: (field as HTMLInputElement).type || field.tagName.toLowerCase(),
+            name: (field as HTMLInputElement).name || '',
+            label: document.querySelector(`label[for="${field.id}"]`)?.textContent?.trim() || ''
+        }))
+    }));
+
+    return {
+        title: document.title,
+        headlines: {
+            h1: getAllElementsText('h1'),
+            h2: getAllElementsText('h2'),
+        },
+        ctas: ctas,
+        contactForms: contactForms,
+        socialProof: {
+            testimonials: getAllElementsText('.testimonial, .quote'),
+            logos: Array.from(document.querySelectorAll('.client-logos img, .customer-logo img')).map(img => ({
+                src: (img as HTMLImageElement).src,
+                alt: (img as HTMLImageElement).alt
+            }))
+        },
+    };
+  });
+
+  await browser.close();
+  return { data };
+}
+
+type LandingPageData = Awaited<ReturnType<typeof analyzeLandingPage>>['data'];
+type Issue = { category: string; severity: 'critical' | 'high' | 'medium'; issue: string };
+
+function findStructuralIssues(data: LandingPageData): Issue[] {
+  const issues: Issue[] = [];
+
+  // 1. Chiarezza del Messaggio
+  if (data.headlines.h1.length === 0) {
+    issues.push({ category: 'messageClarity', severity: 'critical', issue: 'Manca un titolo H1, fondamentale per la SEO e la chiarezza.' });
+  }
+  if (data.headlines.h1.length > 1) {
+    issues.push({ category: 'messageClarity', severity: 'high', issue: `Sono presenti ${data.headlines.h1.length} titoli H1. Dovrebbe essercene solo uno.` });
+  }
+  if (!data.title) {
+    issues.push({ category: 'messageClarity', severity: 'high', issue: 'Manca il meta-titolo della pagina (<title>).' });
+  }
+
+  // 2. Call to Action
+  if (data.ctas.length === 0) {
+    issues.push({ category: 'callToAction', severity: 'critical', issue: 'Nessuna Call-to-Action (CTA) trovata sulla pagina.' });
+  }
+  const ctasAboveFold = data.ctas.filter(cta => cta.isAboveTheFold).length;
+  if (ctasAboveFold === 0 && data.ctas.length > 0) {
+    issues.push({ category: 'callToAction', severity: 'high', issue: 'Nessuna Call-to-Action (CTA) è visibile "above the fold" (senza scrollare).' });
+  }
+
+  // 3. Form di Contatto
+  if (data.contactForms.length === 0) {
+    issues.push({ category: 'contactForm', severity: 'medium', issue: 'Nessun form di contatto trovato. Potrebbe essere intenzionale, ma è un elemento chiave per la lead generation.' });
+  } else {
+    const form = data.contactForms[0];
+    if (form.fields.length > 6) {
+      issues.push({ category: 'contactForm', severity: 'medium', issue: `Il primo form di contatto ha ${form.fields.length} campi, il che potrebbe ridurre le conversioni.` });
+    }
+  }
+
+  // 4. Prova Sociale
+  if (data.socialProof.testimonials.length === 0 && data.socialProof.logos.length === 0) {
+    issues.push({ category: 'socialProof', severity: 'medium', issue: 'Nessuna prova sociale evidente (testimonianze, loghi clienti) trovata.' });
+  }
+
+  return issues;
+}
+
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { url, action, extractedData } = body;
+  try {
+    const body = await req.json();
+    const { url, action, extractedData } = body;
 
-  // Gestione dell'interruzione
-  if (action === 'abort') {
-    if (abortController) {
-      abortController.abort();
-      abortController = null;
-    }
-    return NextResponse.json({ success: true, message: 'Analisi interrotta' });
-  }
-
-  // Azione 1: Estrazione dei dati dalla pagina web
-  if (action === 'extract') {
     if (!url) {
-      return NextResponse.json({ error: 'URL mancante' }, { status: 400 });
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
-    try {
-      console.log(`Inizio estrazione per: ${url}`);
-      const data = await analyzeLandingPage(url);
-      const issues = findStructuralIssues(data.data);
-      console.log(`Estrazione completata. Trovati ${issues.length} problemi.`);
-      
-      return NextResponse.json({
-        success: true,
-        extractedData: data,
-        issues: issues,
-      });
-    } catch (error: any) {
-      console.error("Errore nell'API (extract):", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (action === 'extract') {
+      const { data } = await analyzeLandingPage(url);
+      const issues = findStructuralIssues(data);
+      return NextResponse.json({ extractedData: { data }, issues });
     }
+
+    // Qui andrà la logica per l'azione 'analyze'
+    if (action === 'analyze') {
+       // TODO: Implementare la logica di analisi con Gemini
+       // Per ora, restituiamo un placeholder
+       return NextResponse.json({ analysis: "Analisi AI completata (placeholder)" });
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+
+  } catch (error: any) {
+    console.error('API Error:', error);
+    return NextResponse.json({ error: error.message || 'An unknown error occurred' }, { status: 500 });
   }
-
-  // Azione 2: Analisi con l'intelligenza artificiale
-  if (action === 'analyze') {
-    if (!extractedData) {
-      return NextResponse.json({ error: 'Dati estratti mancanti' }, { status: 400 });
-    }
-    
-    abortController = new AbortController();
-    
-    try {
-      const prompt = `
-        Sei un esperto di marketing specializzato nell'analisi di landing page.
-        Analizza i seguenti dati estratti da una landing page e fornisci una valutazione dettagliata.
-        URL della pagina: ${url}
-        Dati estratti: ${JSON.stringify(extractedData.data, null, 2)}
-
-        Organizza la tua risposta in un oggetto JSON con le seguenti chiavi:
-        - "messageClarity": "Analisi dell'headline, sub-headline e proposta di valore.",
-        - "visualImpact": "Analisi dell'immagine hero e impatto visivo.",
-        - "persuasiveCopy": "Analisi del testo persuasivo e focus sui benefici.",
-        - "socialProof": "Analisi delle testimonianze, loghi, certificazioni.",
-        - "callToAction": "Analisi dei CTA, posizionamento e testo.",
-        - "contactForm": "Analisi del form di contatto.",
-        - "userExperience": "Analisi dell'UX e performance.",
-        - "recommendations": "Un paragrafo con i 3 suggerimenti più importanti per migliorare la pagina."
-      `;
-
-      console.log('Invio richiesta a OpenRouter con Gemini 2.5 Pro per analisi...');
-      const response = await fetch(`${process.env.OPENROUTER_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: "json_object" }, // Chiediamo esplicitamente un JSON
-          max_tokens: 4000,
-        }),
-        signal: abortController.signal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Errore nella chiamata a OpenRouter');
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content || '{}';
-      
-      let sections = {};
-      try {
-        sections = JSON.parse(content);
-      } catch (e) {
-        console.error("La risposta dell'AI non era un JSON valido:", content);
-        throw new Error("La risposta dell'AI non è in un formato JSON valido.");
-      }
-
-      console.log('Analisi AI completata.');
-      return NextResponse.json({
-        success: true,
-        sections: sections,
-        tokens: data.usage,
-      });
-
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('Analisi AI interrotta.');
-        return NextResponse.json({ error: 'Analisi interrotta dall\'utente' }, { status: 499 });
-      }
-      console.error("Errore nell'API (analyze):", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    } finally {
-      abortController = null;
-    }
-  }
-
-  return NextResponse.json({ error: 'Azione non valida' }, { status: 400 });
 }
