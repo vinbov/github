@@ -53,10 +53,7 @@ export default function HomePage() {
   const [tool3ApifyActorId, setTool3ApifyActorId] = useState('curious_coder~facebook-ads-library-scraper');
   const [tool3FbAdsUrl, setTool3FbAdsUrl] = useState('');
   const [tool3MaxAdsToProcess, setTool3MaxAdsToProcess] = useState(10);
-<<<<<<< Updated upstream
-=======
   const [tool3OpenAIApiKey, setTool3OpenAIApiKey] = useState(''); // Mantenuto se Tool3 lo usa ancora
->>>>>>> Stashed changes
   const [tool3ScrapedAds, setTool3ScrapedAds] = useState<ScrapedAd[]>([]);
   const [tool3AdsWithAnalysis, setTool3AdsWithAnalysis] = useState<AdWithAngleAnalysis[]>([]);
 
@@ -67,14 +64,9 @@ export default function HomePage() {
   const [tool4AnalyzedGscData, setTool4AnalyzedGscData] = useState<GscAnalyzedData | null>(null);
   const [tool4GscFiltersDisplay, setTool4GscFiltersDisplay] = useState<string>("");
 
-<<<<<<< Updated upstream
-  // --- State for Tool 5 Landing ---
-  const [tool5LandingResults, setTool5LandingResults] = useState<LandingPageWithAnalysis[]>([]);
-=======
   // --- State for Tool 5 ---
   const [tool5Url, setTool5Url] = useState<string>("");
   const [submittedTool5Url, setSubmittedTool5Url] = useState<string>("");
->>>>>>> Stashed changes
 
 
   return (
@@ -139,6 +131,8 @@ export default function HomePage() {
                 setFbAdsUrl={setTool3FbAdsUrl}
                 maxAdsToProcess={tool3MaxAdsToProcess}
                 setMaxAdsToProcess={setTool3MaxAdsToProcess}
+                openAIApiKey={tool3OpenAIApiKey}
+                setOpenAIApiKey={setTool3OpenAIApiKey}
                 scrapedAds={tool3ScrapedAds}
                 setScrapedAds={setTool3ScrapedAds}
                 adsWithAnalysis={tool3AdsWithAnalysis}
@@ -161,47 +155,6 @@ export default function HomePage() {
             </div>
           )}
           {activeTool === 'tool5' && (
-<<<<<<< Updated upstream
-            <div id="tool5-container">
-              <Tool5MasterReport 
-                tool1Data={{
-                  comparisonResultsCount: {
-                    common: tool1ComparisonResults.filter(r => r.status === 'common').length,
-                    mySiteOnly: tool1ComparisonResults.filter(r => r.status === 'mySiteOnly').length,
-                    competitorOnly: tool1ComparisonResults.filter(r => r.status === 'competitorOnly').length,
-                    totalUnique: new Set(tool1ComparisonResults.map(r => r.keyword)).size
-                  },
-                  rawResults: tool1ComparisonResults, 
-                  activeCompetitorNames: tool1ActiveCompetitorNames,
-                }}
-                tool2Data={{
-                  analysisResults: tool2AnalysisResults,
-                  industryContext: tool2Industry || tool2IndustryKeywords ? `Settore di riferimento: ${tool2Industry || 'N/D'}, Parole chiave specifiche: ${tool2IndustryKeywords || 'N/D'}` : "Nessun contesto di settore fornito per l'analisi del Tool 2.",
-                }}
-                toolDataForSeoData={{
-                  seedKeywords: dataForSeoSeedKeywords,
-                  locationContext: `Località: ${dataForSeoLocationCode || 'Default'}, Lingua: ${dataForSeoLanguageCode || 'Default'}`,
-                  results: dataForSeoAnalysisResults,
-                  totalIdeasFound: dataForSeoAnalysisResults.length,
-                }}
-                tool3Data={{
-                  scrapedAds: tool3ScrapedAds,
-                  adsWithAnalysis: tool3AdsWithAnalysis,
-                }}
-                tool4Data={{
-                  analyzedGscData: tool4AnalyzedGscData,
-                  gscFiltersDisplay: tool4GscFiltersDisplay,
-                }}
-              />
-            </div>
-          )}
-          {activeTool === 'tool5Landing' && (
-            <div id="tool5Landing-container">
-              <Tool5LandingAnalyzer
-                analyzedPages={tool5LandingResults}
-                setAnalyzedPages={setTool5LandingResults}
-              />
-=======
             <div id="tool5-container" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -234,7 +187,6 @@ export default function HomePage() {
               {submittedTool5Url && (
                 <Tool5MasterReport landingPageUrl={submittedTool5Url} />
               )}
->>>>>>> Stashed changes
             </div>
           )}
         </main>
