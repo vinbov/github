@@ -1,338 +1,130 @@
-"use client";
-import React, { useState, useRef } from 'react';
+// filepath: /workspaces/github/src/components/tools/tool5-landing-analyzer/tool5-landing-analyzer.tsx
+'use client';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { LandingPageAnalysis, LandingPageWithAnalysis } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
-import { analyzeLandingPageAction } from '@/app/actions/tool5-actions';
-import { TableLandingPageAnalysis } from './table-landing-page-analysis';
-import { exportToCSV } from '@/lib/csv';
-import { Search, Download, AlertCircle, Bot, Loader2, FileText, StopCircle, Globe, Target, Users } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader, AlertTriangle, CheckCircle } from 'lucide-react';
 
-const generateId = () => Math.random().toString(36).substr(2, 9);
+type ReportSection = { title: string; content: string };
+type Issue = { category: string; severity: string; issue: string };
+type ExtractedData = any;
 
-interface Tool5LandingAnalyzerProps {
-  analyzedPages: LandingPageWithAnalysis[];
-  setAnalyzedPages: React.Dispatch<React.SetStateAction<LandingPageWithAnalysis[]>>;
-}
+type State = 
+  | { name: 'idle' }
+  | { name: 'extracting'; url: string }
+  | { name: 'analyzing'; url: string; extractedData: ExtractedData; issues: Issue[] }
+  | { name: 'success'; url: string; sections: ReportSection[]; issues: Issue[]; tokens: any }
+  | { name: 'error'; message: string };
 
-export function Tool5LandingAnalyzer({
-  analyzedPages,
-  setAnalyzedPages,
-}: Tool5LandingAnalyzerProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [landingPageUrl, setLandingPageUrl] = useState("");
-  const [businessType, setBusinessType] = useState("");
-  const [primaryGoal, setPrimaryGoal] = useState("");
-  const [targetAudience, setTargetAudience] = useState("");
-  const [loadingMessage, setLoadingMessage] = useState("");
-  const [error, setError] = useState<string | null>(null);
+export function Tool5LandingAnalyzer() {
+  const [state, setState] = useState<State>({ name: 'idle' });
+  const [urlInput, setUrlInput] = useState('');
 
-  const isAnalysisStoppedRef = useRef(false);
-  const router = useRouter();
-  const { toast } = useToast();
-
-  const runLandingPageAnalysis = async () => {
-    if (!landingPageUrl || !landingPageUrl.startsWith("http")) {
-      setError("Inserisci un URL valido per la landing page da analizzare.");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!urlInput) return;
     
-    setIsAnalyzing(true);
-    setLoadingMessage("Avvio analisi marketing della landing page...");
-    setError(null);
-    isAnalysisStoppedRef.current = false;
+    setState({ name: 'extracting', url: urlInput });
 
     try {
-      setLoadingMessage("Scraping contenuto della landing page...");
-      
-      // Prima facciamo lo scraping del contenuto della pagina
-      const scrapingResponse = await fetch('/api/scrape-landing-page', {
+      // --- FASE 1: Estrazione Dati ---
+      const extractRes = await fetch('/api/analyze-landing-page', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: landingPageUrl })
+        body: JSON.stringify({ url: urlInput, action: 'extract' }),
       });
 
-      if (!scrapingResponse.ok) {
-        throw new Error(`Errore durante lo scraping: ${scrapingResponse.statusText}`);
+      if (!extractRes.ok) {
+        const { error } = await extractRes.json();
+        throw new Error(error || 'Errore durante l\'estrazione dei dati.');
       }
 
-      const scrapedData = await scrapingResponse.json();
-      
-      setLoadingMessage("Analisi marketing in corso con Gemini 2.5 Pro (Google AI)...");
-      
-      // Poi analizziamo i dati con Gemini
-      const analysisResult = await analyzeLandingPageAction({
-        url: landingPageUrl,
-        scrapedData: scrapedData,
-        businessType: businessType || "general",
-        primaryGoal: primaryGoal || "conversion",
-        targetAudience: targetAudience || "general"
+      const { extractedData, issues } = await extractRes.json();
+      setState({ name: 'analyzing', url: urlInput, extractedData, issues });
+
+      // --- FASE 2: Analisi AI ---
+      const analyzeRes = await fetch('/api/analyze-landing-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput, action: 'analyze', extractedData }),
       });
 
-      const newAnalyzedPage: LandingPageWithAnalysis = {
-        id: generateId(),
-        url: landingPageUrl,
-        businessType: businessType || "general",
-        primaryGoal: primaryGoal || "conversion",
-        targetAudience: targetAudience || "general",
-        scrapedData: scrapedData,
-        analysis: analysisResult,
-        analyzedAt: new Date().toISOString()
-      };
+      if (!analyzeRes.ok) {
+        const { error } = await analyzeRes.json();
+        throw new Error(error || 'Errore durante l\'analisi AI.');
+      }
 
-      setAnalyzedPages(prev => [newAnalyzedPage, ...prev]);
-      setLoadingMessage("Analisi completata!");
-      
-      toast({ 
-        title: "Analisi Completata", 
-        description: `Landing page analizzata con successo. Score: ${analysisResult.overallScore}/100` 
-      });
+      const { sections, tokens } = await analyzeRes.json();
+      const reportSections = Object.entries(sections).map(([key, value]) => ({
+        title: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+        content: value as string,
+      }));
 
-      // Reset form
-      setLandingPageUrl("");
-      setBusinessType("");
-      setPrimaryGoal("");
-      setTargetAudience("");
+      setState({ name: 'success', url: urlInput, sections: reportSections, issues, tokens });
 
-    } catch (e: any) {
-      console.error("Errore durante l'analisi della landing page:", e);
-      setError(`Errore analisi: ${e.message}`);
-      toast({ title: "Errore Analisi", description: e.message, variant: "destructive" });
-    } finally {
-      setIsAnalyzing(false);
+    } catch (error: any) {
+      setState({ name: 'error', message: error.message });
     }
   };
 
-  const handleStopAnalysis = () => {
-    isAnalysisStoppedRef.current = true;
-    setLoadingMessage("Interruzione analisi in corso...");
-  };
-
-  const handleDownloadCSV = () => {
-    if (analyzedPages.length === 0) {
-      toast({ title: "Nessun dato", description: "Nessun risultato da scaricare.", variant: "destructive" });
-      return;
+  const renderContent = () => {
+    switch (state.name) {
+      case 'extracting':
+        return <div className="flex items-center"><Loader className="mr-2 animate-spin" /> Estrazione dei dati dalla pagina...</div>;
+      case 'analyzing':
+        return <div className="flex items-center"><Loader className="mr-2 animate-spin" /> Analisi con AI in corso...</div>;
+      case 'success':
+        return (
+          <div>
+            <h3 className="text-lg font-bold mb-2">Report Analisi per: {state.url}</h3>
+            {state.issues.length > 0 && (
+              <Card className="mb-4 bg-yellow-50 border-yellow-200">
+                <CardHeader><CardTitle>Problemi Strutturali Rilevati</CardTitle></CardHeader>
+                <CardContent>
+                  <ul className="list-disc pl-5">
+                    {state.issues.map((issue, i) => <li key={i} className="mb-1">{issue.issue}</li>)}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+            {state.sections.map((section, i) => (
+              <Card key={i} className="mb-4">
+                <CardHeader><CardTitle>{section.title}</CardTitle></CardHeader>
+                <CardContent><p>{section.content}</p></CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      case 'error':
+        return <div className="text-red-500 flex items-center"><AlertTriangle className="mr-2" /> Errore: {state.message}</div>;
+      default:
+        return <p>Inserisci un URL per iniziare l'analisi.</p>;
     }
-
-    const headers = [
-      "URL", "Tipo Business", "Obiettivo", "Target Audience", "Data Analisi",
-      "Score Totale", "M1_Chiarezza_Messaggio", "M2_Impatto_Visivo", "M3_Efficacia_CTA", 
-      "M4_Elementi_Fiducia", "M5_Flusso_Utente", "M6_Esperienza_Mobile", 
-      "M7_Prova_Sociale", "M8_Urgenza_Scarsita", "M9_Qualita_Contenuto", "M10_Ottimizzazione_Conversioni",
-      "Valutazione", "Punti_Forza", "Problemi_Critici", "Raccomandazioni_Priorita", "Analisi_Dettagliata"
-    ];
-
-    const csvRows = analyzedPages.map(page => ({
-      "URL": page.url,
-      "Tipo Business": page.businessType,
-      "Obiettivo": page.primaryGoal,
-      "Target Audience": page.targetAudience,
-      "Data Analisi": new Date(page.analyzedAt).toLocaleString(),
-      "Score Totale": page.analysis.overallScore,
-      "M1_Chiarezza_Messaggio": page.analysis.m1MessageClarity,
-      "M2_Impatto_Visivo": page.analysis.m2VisualImpact,
-      "M3_Efficacia_CTA": page.analysis.m3CtaEffectiveness,
-      "M4_Elementi_Fiducia": page.analysis.m4TrustElements,
-      "M5_Flusso_Utente": page.analysis.m5UserFlow,
-      "M6_Esperienza_Mobile": page.analysis.m6MobileExperience,
-      "M7_Prova_Sociale": page.analysis.m7SocialProof,
-      "M8_Urgenza_Scarsita": page.analysis.m8UrgencyScarcity,
-      "M9_Qualita_Contenuto": page.analysis.m9ContentQuality,
-      "M10_Ottimizzazione_Conversioni": page.analysis.m10ConversionOptimization,
-      "Valutazione": page.analysis.evaluation,
-      "Punti_Forza": page.analysis.strengths.join("; "),
-      "Problemi_Critici": page.analysis.criticalIssues.join("; "),
-      "Raccomandazioni_Priorita": page.analysis.priorityRecommendations.join("; "),
-      "Analisi_Dettagliata": page.analysis.detailedAnalysis
-    }));
-
-    exportToCSV("tool5_landing_page_analysis_report.csv", headers, csvRows);
-  };
-
-  const openDetailPage = () => {
-    if (analyzedPages.length === 0) {
-      toast({ title: "Dati Insufficienti", description: "Analizza almeno una landing page.", variant: "destructive" });
-      return;
-    }
-    localStorage.setItem('tool5LandingAnalysisData', JSON.stringify(analyzedPages));
-    router.push('/tool5/landing-analysis');
   };
 
   return (
-    <div className="space-y-8">
-      <header className="text-center">
-        <h2 className="text-3xl font-bold" style={{ color: 'hsl(var(--purple-600))' }}>
-          Landing Page Marketing Analyzer (Tool 5)
-        </h2>
-        <p className="text-muted-foreground mt-2">
-          Analizza landing page e siti web con il framework Marketing 10M per ottimizzare le conversioni.
-        </p>
-      </header>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Configurazione Analisi Landing Page</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label htmlFor="landingPageUrlTool5" className="block text-sm font-medium text-foreground mb-1">
-              URL Landing Page / Sito Web
-            </label>
-            <Input
-              type="url"
-              id="landingPageUrlTool5"
-              value={landingPageUrl}
-              onChange={(e) => setLandingPageUrl(e.target.value)}
-              placeholder="https://example.com/landing-page"
-              disabled={isAnalyzing}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="businessTypeTool5" className="block text-sm font-medium text-foreground mb-1">
-                <Users className="inline h-4 w-4 mr-1" />
-                Tipo di Business
-              </label>
-              <Select value={businessType} onValueChange={setBusinessType} disabled={isAnalyzing}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="saas">SaaS / Software</SelectItem>
-                  <SelectItem value="ecommerce">E-commerce</SelectItem>
-                  <SelectItem value="leadgen">Lead Generation</SelectItem>
-                  <SelectItem value="course">Corsi Online</SelectItem>
-                  <SelectItem value="consulting">Consulenza</SelectItem>
-                  <SelectItem value="agency">Agenzia</SelectItem>
-                  <SelectItem value="other">Altro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label htmlFor="primaryGoalTool5" className="block text-sm font-medium text-foreground mb-1">
-                <Target className="inline h-4 w-4 mr-1" />
-                Obiettivo Primario
-              </label>
-              <Select value={primaryGoal} onValueChange={setPrimaryGoal} disabled={isAnalyzing}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona obiettivo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sale">Vendita Diretta</SelectItem>
-                  <SelectItem value="lead">Generazione Lead</SelectItem>
-                  <SelectItem value="signup">Registrazione/Signup</SelectItem>
-                  <SelectItem value="download">Download</SelectItem>
-                  <SelectItem value="booking">Prenotazione</SelectItem>
-                  <SelectItem value="engagement">Engagement</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label htmlFor="targetAudienceTool5" className="block text-sm font-medium text-foreground mb-1">
-                <Globe className="inline h-4 w-4 mr-1" />
-                Target Audience
-              </label>
-              <Select value={targetAudience} onValueChange={setTargetAudience} disabled={isAnalyzing}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona target..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="b2b">B2B Professional</SelectItem>
-                  <SelectItem value="b2c">B2C Consumer</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
-                  <SelectItem value="smb">Small Business</SelectItem>
-                  <SelectItem value="students">Studenti</SelectItem>
-                  <SelectItem value="general">Generico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="openAIApiKeyTool5" className="block text-sm font-medium text-foreground mb-1">
-              OpenAI API Key
-            </label>
-            <Input
-              type="password"
-              id="openAIApiKeyTool5"
-              placeholder="La tua chiave API OpenAI (es. sk-...)"
-              disabled={isAnalyzing}
-              readOnly
-            />
-            <p className="text-xs text-muted-foreground mt-1">Usata per l'analisi marketing con Gemini 2.5 Pro (Google AI).</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="text-center">
-        <Button 
-          onClick={runLandingPageAnalysis} 
-          disabled={isAnalyzing} 
-          className="action-button bg-purple-600 hover:bg-purple-700 text-white text-lg"
-        >
-          {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
-          {isAnalyzing ? "Analisi in corso..." : "Analizza Landing Page"}
-        </Button>
-      </div>
-
-      {isAnalyzing && (
-        <div className="text-center my-6">
-          <p className="text-purple-600 text-lg mb-1">{loadingMessage}</p>
-          <Progress value={50} className="w-3/4 mx-auto mt-2" />
-          <Button onClick={handleStopAnalysis} variant="destructive" size="sm" className="mt-3">
-            <StopCircle className="mr-2 h-4 w-4" /> Interrompi Analisi
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Analizzatore Landing Page con AI</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
+          <Input
+            type="url"
+            placeholder="https://www.esempio.com"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            disabled={state.name === 'extracting' || state.name === 'analyzing'}
+          />
+          <Button type="submit" disabled={state.name === 'extracting' || state.name === 'analyzing'}>
+            Analizza
           </Button>
+        </form>
+        <div className="mt-4 p-4 border rounded-lg min-h-[100px]">
+          {renderContent()}
         </div>
-      )}
-
-      {error && (
-        <Alert variant="destructive" className="my-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Errore</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {analyzedPages.length > 0 && !isAnalyzing && (
-        <Card className="mt-10">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl">Risultati Analisi Landing Page (Tool 5)</CardTitle>
-              <CardDescription>
-                {analyzedPages.length} landing page analizzate con il framework Marketing 10M.
-              </CardDescription>
-            </div>
-            <Button variant="link" onClick={openDetailPage} className="detail-button">
-              Visualizza Report Dettagliato <FileText className="ml-2 h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <TableLandingPageAnalysis landingPages={analyzedPages.slice(0, 5)} />
-            {analyzedPages.length > 5 && (
-              <p className="text-sm text-muted-foreground text-center mt-2">
-                Mostrate le prime 5 analisi. Clicca su "Visualizza Report Dettagliato" per vederle tutte.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {analyzedPages.length > 0 && !isAnalyzing && (
-        <div className="text-center mt-6">
-          <Button onClick={handleDownloadCSV} variant="outline">
-            Scarica Risultati Landing Page (CSV) <Download className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
