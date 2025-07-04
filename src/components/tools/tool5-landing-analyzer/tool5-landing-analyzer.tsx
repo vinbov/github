@@ -1,128 +1,110 @@
-// filepath: /workspaces/github/src/components/tools/tool5-landing-analyzer/tool5-landing-analyzer.tsx
 'use client';
-import { useState } from 'react';
+
+import React, { useState } from 'react';
+import type { LandingPageWithAnalysis } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-type ReportSection = { title: string; content: string };
-type Issue = { category: string; severity: string; issue: string };
-type ExtractedData = any;
+type Tool5LandingAnalyzerProps = {
+  analyzedPages: LandingPageWithAnalysis[];
+  setAnalyzedPages: React.Dispatch<React.SetStateAction<LandingPageWithAnalysis[]>>;
+};
 
-type State = 
-  | { name: 'idle' }
-  | { name: 'extracting'; url: string }
-  | { name: 'analyzing'; url: string; extractedData: ExtractedData; issues: Issue[] }
-  | { name: 'success'; url: string; sections: ReportSection[]; issues: Issue[]; tokens: any }
-  | { name: 'error'; message: string };
+type AnalysisApiResponse = {
+  choices: { message: { content: string; }; }[];
+};
 
-export function Tool5LandingAnalyzer() {
-  const [state, setState] = useState<State>({ name: 'idle' });
-  const [urlInput, setUrlInput] = useState('');
+export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages }: Tool5LandingAnalyzerProps) {
+  const [url, setUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!urlInput) return;
-    
-    setState({ name: 'extracting', url: urlInput });
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
     try {
-      // --- FASE 1: Estrazione Dati ---
-      const extractRes = await fetch('/api/analyze-landing-page', {
+      const response = await fetch('/api/analyze-landing-page', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput, action: 'extract' }),
+        body: JSON.stringify({ url }),
       });
 
-      if (!extractRes.ok) {
-        const { error } = await extractRes.json();
-        throw new Error(error || 'Errore durante l\'estrazione dei dati.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'An unknown error occurred during analysis.');
       }
 
-      const { extractedData, issues } = await extractRes.json();
-      setState({ name: 'analyzing', url: urlInput, extractedData, issues });
-
-      // --- FASE 2: Analisi AI ---
-      const analyzeRes = await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput, action: 'analyze', extractedData }),
-      });
-
-      if (!analyzeRes.ok) {
-        const { error } = await analyzeRes.json();
-        throw new Error(error || 'Errore durante l\'analisi AI.');
+      const analysisContent = (data as AnalysisApiResponse)?.choices?.[0]?.message?.content;
+      if (!analysisContent) {
+        throw new Error('Could not parse the analysis from the API response.');
       }
 
-      const { sections, tokens } = await analyzeRes.json();
-      const reportSections = Object.entries(sections).map(([key, value]) => ({
-        title: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-        content: value as string,
-      }));
+      const newAnalysis: LandingPageWithAnalysis = {
+        id: new Date().toISOString(),
+        url: url,
+        analysis: analysisContent,
+        timestamp: new Date().toLocaleString(),
+      };
 
-      setState({ name: 'success', url: urlInput, sections: reportSections, issues, tokens });
+      setAnalyzedPages(prevPages => [newAnalysis, ...prevPages]);
+      setUrl(''); // Pulisci l'input dopo il successo
 
-    } catch (error: any) {
-      setState({ name: 'error', message: error.message });
-    }
-  };
-
-  const renderContent = () => {
-    switch (state.name) {
-      case 'extracting':
-        return <div className="flex items-center"><Loader className="mr-2 animate-spin" /> Estrazione dei dati dalla pagina...</div>;
-      case 'analyzing':
-        return <div className="flex items-center"><Loader className="mr-2 animate-spin" /> Analisi con AI in corso...</div>;
-      case 'success':
-        return (
-          <div>
-            <h3 className="text-lg font-bold mb-2">Report Analisi per: {state.url}</h3>
-            {state.issues.length > 0 && (
-              <Card className="mb-4 bg-yellow-50 border-yellow-200">
-                <CardHeader><CardTitle>Problemi Strutturali Rilevati</CardTitle></CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-5">
-                    {state.issues.map((issue, i) => <li key={i} className="mb-1">{issue.issue}</li>)}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-            {state.sections.map((section, i) => (
-              <Card key={i} className="mb-4">
-                <CardHeader><CardTitle>{section.title}</CardTitle></CardHeader>
-                <CardContent><p>{section.content}</p></CardContent>
-              </Card>
-            ))}
-          </div>
-        );
-      case 'error':
-        return <div className="text-red-500 flex items-center"><AlertTriangle className="mr-2" /> Errore: {state.message}</div>;
-      default:
-        return <p>Inserisci un URL per iniziare l'analisi.</p>;
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
         <CardTitle>Analizzatore Landing Page con AI</CardTitle>
+        <p className="text-muted-foreground">
+          Inserisci l'URL di una landing page per ottenere un'analisi basata su AI dei suoi punti di forza, debolezza e suggerimenti di miglioramento.
+        </p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 mb-6">
           <Input
             type="url"
-            placeholder="https://www.esempio.com"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            disabled={state.name === 'extracting' || state.name === 'analyzing'}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.example.com"
+            required
+            disabled={isLoading}
+            className="flex-grow"
           />
-          <Button type="submit" disabled={state.name === 'extracting' || state.name === 'analyzing'}>
-            Analizza
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Analisi in corso...' : 'Analizza URL'}
           </Button>
         </form>
-        <div className="mt-4 p-4 border rounded-lg min-h-[100px]">
-          {renderContent()}
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Errore</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-4 mt-6">
+          {analyzedPages.map((page) => (
+            <Card key={page.id} className="bg-muted/50">
+              <CardHeader>
+                <CardTitle className="text-lg break-all">{page.url}</CardTitle>
+                <p className="text-sm text-muted-foreground">{page.timestamp}</p>
+              </CardHeader>
+              <CardContent>
+                <h3 className="font-semibold mb-2">Risultato Analisi:</h3>
+                <p className="whitespace-pre-wrap text-sm">{page.analysis}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </CardContent>
     </Card>
