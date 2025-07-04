@@ -9,9 +9,11 @@ import { ToolDataForSeoAnalyzer } from '@/components/tools/tool-dataforseo-analy
 import { Tool3Scraper } from '@/components/tools/tool3-scraper/tool3-scraper';
 import { Tool4GSCAnalyzer } from '@/components/tools/tool4-gsc-analyzer/tool4-gsc-analyzer';
 import { Tool5MasterReport } from '@/components/tools/tool5-master-report/tool5-master-report';
-import { Tool5LandingAnalyzer } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
-import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData, LandingPageWithAnalysis } from '@/lib/types';
+import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData } from '@/lib/types';
 import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 
 const tools = [
@@ -20,8 +22,7 @@ const tools = [
   { id: 'toolDataForSeo', label: 'Analisi Domanda Consapevole (DFS)' },
   { id: 'tool3', label: 'FB Ads Library Scraper' },
   { id: 'tool4', label: 'Analizzatore Dati GSC' },
-  { id: 'tool5', label: 'Report Consolidato' },
-  { id: 'tool5Landing', label: 'Analizzatore Landing Page' },
+  { id: 'tool5', label: 'Analizzatore Landing Page' },
 ];
 
 export default function HomePage() {
@@ -52,6 +53,10 @@ export default function HomePage() {
   const [tool3ApifyActorId, setTool3ApifyActorId] = useState('curious_coder~facebook-ads-library-scraper');
   const [tool3FbAdsUrl, setTool3FbAdsUrl] = useState('');
   const [tool3MaxAdsToProcess, setTool3MaxAdsToProcess] = useState(10);
+<<<<<<< Updated upstream
+=======
+  const [tool3OpenAIApiKey, setTool3OpenAIApiKey] = useState(''); // Mantenuto se Tool3 lo usa ancora
+>>>>>>> Stashed changes
   const [tool3ScrapedAds, setTool3ScrapedAds] = useState<ScrapedAd[]>([]);
   const [tool3AdsWithAnalysis, setTool3AdsWithAnalysis] = useState<AdWithAngleAnalysis[]>([]);
 
@@ -62,8 +67,14 @@ export default function HomePage() {
   const [tool4AnalyzedGscData, setTool4AnalyzedGscData] = useState<GscAnalyzedData | null>(null);
   const [tool4GscFiltersDisplay, setTool4GscFiltersDisplay] = useState<string>("");
 
+<<<<<<< Updated upstream
   // --- State for Tool 5 Landing ---
   const [tool5LandingResults, setTool5LandingResults] = useState<LandingPageWithAnalysis[]>([]);
+=======
+  // --- State for Tool 5 ---
+  const [tool5Url, setTool5Url] = useState<string>("");
+  const [submittedTool5Url, setSubmittedTool5Url] = useState<string>("");
+>>>>>>> Stashed changes
 
 
   return (
@@ -150,6 +161,7 @@ export default function HomePage() {
             </div>
           )}
           {activeTool === 'tool5' && (
+<<<<<<< Updated upstream
             <div id="tool5-container">
               <Tool5MasterReport 
                 tool1Data={{
@@ -189,6 +201,40 @@ export default function HomePage() {
                 analyzedPages={tool5LandingResults}
                 setAnalyzedPages={setTool5LandingResults}
               />
+=======
+            <div id="tool5-container" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analizzatore Landing Page</CardTitle>
+                  <CardDescription>
+                    Inserisci l'URL della landing page che vuoi analizzare. Il report verrà generato qui sotto.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setSubmittedTool5Url(tool5Url);
+                    }}
+                    className="flex flex-col sm:flex-row gap-2"
+                  >
+                    <Input
+                      type="url"
+                      placeholder="https://www.example.com"
+                      value={tool5Url}
+                      onChange={(e) => setTool5Url(e.target.value)}
+                      required
+                      className="flex-grow"
+                    />
+                    <Button type="submit">Analizza URL</Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {submittedTool5Url && (
+                <Tool5MasterReport landingPageUrl={submittedTool5Url} />
+              )}
+>>>>>>> Stashed changes
             </div>
           )}
         </main>
