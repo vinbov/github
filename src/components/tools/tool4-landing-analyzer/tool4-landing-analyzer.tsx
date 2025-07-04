@@ -17,15 +17,11 @@ import { useRouter } from 'next/navigation';
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 interface Tool4LandingAnalyzerProps {
-  openAIApiKey: string;
-  setOpenAIApiKey: (value: string) => void;
   analyzedPages: LandingPageWithAnalysis[];
   setAnalyzedPages: React.Dispatch<React.SetStateAction<LandingPageWithAnalysis[]>>;
 }
 
 export function Tool4LandingAnalyzer({
-  openAIApiKey,
-  setOpenAIApiKey,
   analyzedPages,
   setAnalyzedPages,
 }: Tool4LandingAnalyzerProps) {
@@ -47,12 +43,6 @@ export function Tool4LandingAnalyzer({
       return;
     }
     
-    if (!openAIApiKey.trim()) {
-      setError("Inserisci la tua OpenAI API Key per l'analisi della landing page.");
-      toast({ title: "OpenAI API Key Mancante", description: "Inserisci la OpenAI API Key per l'analisi.", variant: "destructive" });
-      return;
-    }
-
     setIsAnalyzing(true);
     setLoadingMessage("Avvio analisi marketing della landing page...");
     setError(null);
@@ -74,7 +64,7 @@ export function Tool4LandingAnalyzer({
 
       const scrapedData = await scrapingResponse.json();
       
-      setLoadingMessage("Analisi marketing in corso con OpenAI...");
+      setLoadingMessage("Analisi marketing in corso con Gemini...");
       
       // Poi analizziamo i dati con OpenAI
       const analysisResult = await analyzeLandingPageAction({
@@ -83,7 +73,7 @@ export function Tool4LandingAnalyzer({
         businessType: businessType || "general",
         primaryGoal: primaryGoal || "conversion",
         targetAudience: targetAudience || "general"
-      }, openAIApiKey.trim());
+      });
 
       const newAnalyzedPage: LandingPageWithAnalysis = {
         id: generateId(),
@@ -274,14 +264,12 @@ export function Tool4LandingAnalyzer({
             <Input
               type="password"
               id="openAIApiKeyTool4"
-              value={openAIApiKey}
-              onChange={(e) => setOpenAIApiKey(e.target.value)}
+              value={""} // Rimuovo la chiave API
+              onChange={(e) => {}} // Rimuovo la funzione di aggiornamento
               placeholder="La tua chiave API OpenAI (es. sk-...)"
               disabled={isAnalyzing}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Usata per l'analisi marketing con il framework 10M (10 Metrics).
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Usata per l'analisi marketing con Gemini 2.5 Pro (Google AI).</p>
           </div>
         </CardContent>
       </Card>

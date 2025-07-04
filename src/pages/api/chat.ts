@@ -1,11 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
+import { ai } from '@/ai/genkit';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Istruzioni per l'AI: personalizza questo messaggio!
 const systemMessage = `
   Sei "SeoPro Assistant", un'intelligenza artificiale esperta integrata in 'SEO Toolkit Pro'.
   Il tuo scopo è aiutare gli utenti a sfruttare al massimo il tool.
@@ -30,15 +25,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // o "gpt-3.5-turbo" per risposte più veloci
+    const { output } = await ai.generate({
+      model: 'googleai/gemini-2.5-pro',
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt }
       ],
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || "Non sono riuscito a generare una risposta.";
+    const aiResponse = output || "Non sono riuscito a generare una risposta.";
     res.status(200).json({ response: aiResponse });
 
   } catch (error) {
