@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { scrapeAndAnalyze } from '@/app/actions/scrape-actions'; // Importa la nuova server action
+// Rimuoviamo l'importazione statica per usare quella dinamica
 
 // ... (i tipi possono rimanere gli stessi o essere adattati se la server action restituisce un formato diverso)
 type AnalysisResponse = {
@@ -25,21 +25,33 @@ export default function LandingPageAnalyzer() {
     setAnalysis('');
 
     try {
-      // Chiama direttamente la server action
-      const result = await scrapeAndAnalyze(url);
+      console.log('Calling API route for analysis...');
+      const response = await fetch('/api/analyze-landing-page', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
 
       if (!result.success || !result.analysis) {
         const errorMsg = !result.success && result.error ? result.error : 'Failed to start analysis.';
         throw new Error(errorMsg);
       }
       
-      // La server action ora restituisce direttamente l'oggetto di analisi
+      // Formattiamo l'oggetto JSON per una visualizzazione leggibile
       const analysisContent = result.analysis;
       if (analysisContent) {
-        // Formattiamo l'oggetto JSON per una visualizzazione leggibile
         setAnalysis(JSON.stringify(analysisContent, null, 2));
       } else {
-        throw new Error('Could not parse the analysis from the server action response.');
+        throw new Error('Could not parse the analysis from the server response.');
       }
 
     } catch (err: any) {
