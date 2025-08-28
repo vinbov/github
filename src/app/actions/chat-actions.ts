@@ -20,13 +20,10 @@ export async function askChat(prompt: string): Promise<string> {
   }
 
   try {
-    const llmResponse = await genkit.generate({
-      model: gemini15Pro,
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: prompt },
-      ],
-    });
+    const llmResponse = await genkit.generate([
+      { text: systemMessage },
+      { text: prompt }
+    ]);
 
     const output = llmResponse.output();
     if (typeof output === 'string') {
