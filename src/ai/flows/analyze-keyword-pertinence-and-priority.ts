@@ -9,7 +9,7 @@
  * - `AnalyzeKeywordPertinenceAndPriorityOutput` - The output type for the function.
  */
 
-import {ai} from '@/ai/genkit';
+import genkit from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeKeywordPertinenceAndPriorityInputSchema = z.object({
@@ -44,7 +44,7 @@ export async function analyzeKeywordPertinenceAndPriority(
   return analyzeKeywordPertinenceAndPriorityFlow(input);
 }
 
-const analyzeKeywordPertinenceAndPriorityPrompt = ai.definePrompt({
+const analyzeKeywordPertinenceAndPriorityPrompt = genkit.definePrompt({
   name: 'analyzeKeywordPertinenceAndPriorityPrompt',
   input: {schema: AnalyzeKeywordPertinenceAndPriorityInputSchema},
   output: {schema: AnalyzeKeywordPertinenceAndPriorityOutputSchema},
@@ -89,7 +89,7 @@ Ensure your entire response is a single JSON object matching the output schema.
 `,
 });
 
-const analyzeKeywordPertinenceAndPriorityFlow = ai.defineFlow(
+const analyzeKeywordPertinenceAndPriorityFlow = genkit.defineFlow(
   {
     name: 'analyzeKeywordPertinenceAndPriorityFlow',
     inputSchema: AnalyzeKeywordPertinenceAndPriorityInputSchema,

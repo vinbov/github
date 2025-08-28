@@ -4,9 +4,7 @@
 
 'use server';
 
-import 'server-only';
-
-import ai from '@/ai/genkit';
+import genkit from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeFacebookAdMarketingAngleInputSchema = z.object({
@@ -41,7 +39,7 @@ export async function analyzeFacebookAdMarketingAngle(
   return analyzeFacebookAdMarketingAngleFlow(input);
 }
 
-const analyzeFacebookAdMarketingAnglePrompt = ai.definePrompt({
+const analyzeFacebookAdMarketingAnglePrompt = genkit.definePrompt({
   name: 'analyzeFacebookAdMarketingAnglePrompt',
   input: {schema: AnalyzeFacebookAdMarketingAngleInputSchema},
   output: {schema: AnalyzeFacebookAdMarketingAngleOutputSchema},
@@ -95,7 +93,7 @@ const AnalyzeFacebookAdMarketingAngleOutputSchemaSanitized = z.object({
 });
 
 
-const analyzeFacebookAdMarketingAngleFlow = ai.defineFlow(
+const analyzeFacebookAdMarketingAngleFlow = genkit.defineFlow(
   {
     name: 'analyzeFacebookAdMarketingAngleFlow',
     inputSchema: AnalyzeFacebookAdMarketingAngleInputSchema,

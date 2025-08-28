@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { askGptSearch } from "@/lib/ai-chat/chatService";
+import { askChat } from "@/app/actions/chat-actions";
 
 export type ChatMessage = {
   id: string;
@@ -30,7 +30,7 @@ export function useChat() {
     setMessages((prev) => [...prev, msg]);
     setLoading(true);
     try {
-      const aiResponse = await askGptSearch(userMessage);
+      const aiResponse = await askChat(userMessage);
       setMessages((prev) => [
         ...prev,
         {
@@ -46,7 +46,7 @@ export function useChat() {
         {
           id: Date.now() + Math.random().toString(36),
           from: "ai",
-          message: "Errore chiamata Apify: " + (e?.message || e),
+          message: "Errore: " + (e?.message || e),
           createdAt: Date.now(),
         },
       ]);

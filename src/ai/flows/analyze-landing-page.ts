@@ -1,4 +1,4 @@
-import { ai } from '@/ai/genkit';
+import genkit from '@/ai/genkit';
 import { z } from 'genkit';
 
 const AnalyzeLandingPageInputSchema = z.object({
@@ -31,7 +31,7 @@ const LandingPageAnalysisSchema = z.object({
 });
 export type LandingPageAnalysis = z.infer<typeof LandingPageAnalysisSchema>;
 
-export const analyzeLandingPageWithGeminiPrompt = ai.definePrompt({
+export const analyzeLandingPageWithGeminiPrompt = genkit.definePrompt({
   name: 'analyzeLandingPageWithGeminiPrompt',
   input: { schema: AnalyzeLandingPageInputSchema },
   output: { schema: LandingPageAnalysisSchema },
