@@ -1,9 +1,6 @@
 "use server";
 import "server-only";
 
-"use server";
-
-import "server-only";
 import genkit from "@/ai/genkit";
 import { gemini15Pro } from "@genkit-ai/googleai";
 
@@ -25,7 +22,7 @@ export async function askChat(prompt: string): Promise<string> {
   try {
     const llmResponse = await genkit.generate({
       model: gemini15Pro,
-      prompt: [
+      messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt },
       ],
@@ -37,32 +34,6 @@ export async function askChat(prompt: string): Promise<string> {
     }
     return output?.toString() || "Non sono riuscito a generare una risposta.";
 
-  } catch (error) {
-    console.error("Errore nella chiamata a Genkit:", error);
-    throw new Error("Errore nella comunicazione con l'AI");
-  }
-}
-
-
-
-
-
-
-export async function askChat(prompt: string) {
-  if (!prompt) {
-    throw new Error("Il prompt è obbligatorio");
-  }
-
-  try {
-    const llmResponse = await genkit.generate({
-      model: gemini15Pro,
-      prompt: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: prompt },
-      ],
-    });
-
-    return llmResponse.output() || "Non sono riuscito a generare una risposta.";
   } catch (error) {
     console.error("Errore nella chiamata a Genkit:", error);
     throw new Error("Errore nella comunicazione con l'AI");
