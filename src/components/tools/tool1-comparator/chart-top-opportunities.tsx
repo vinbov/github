@@ -1,4 +1,6 @@
-"use client"
+
+"use client";
+import React from "react";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import type { ComparisonResult } from '@/lib/types';
@@ -16,7 +18,11 @@ export function TopOpportunitiesChart({ results }: TopOpportunitiesChartProps) {
     .slice(0, 10);
 
   if (topOpportunities.length === 0) {
-    return <p className="text-muted-foreground text-center py-8">Nessuna opportunità significativa trovata (keyword solo per competitor con volume > 0).</p>;
+    return (
+      <p className="text-muted-foreground text-center py-8">
+        Nessuna opportunità significativa trovata (keyword solo per competitor con volume {'>'} 0).
+      </p>
+    );
   }
 
   const data = topOpportunities.map(kw => ({

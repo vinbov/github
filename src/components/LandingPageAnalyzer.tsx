@@ -2,15 +2,15 @@
 'use client';
 
 import { useState } from 'react';
+import { scrapeAndAnalyze } from '@/app/actions/scrape-actions'; // Importa la nuova server action
 
-// Definiamo un tipo per la risposta che ci aspettiamo dall'API
+// ... (i tipi possono rimanere gli stessi o essere adattati se la server action restituisce un formato diverso)
 type AnalysisResponse = {
-  choices: {
-    message: {
-      content: string;
-    };
-  }[];
+  success: boolean;
+  analysis?: any; // Adatta questo tipo in base alla struttura reale
+  error?: string;
 };
+
 
 export default function LandingPageAnalyzer() {
   const [url, setUrl] = useState('');
@@ -25,26 +25,21 @@ export default function LandingPageAnalyzer() {
     setAnalysis('');
 
     try {
-      const response = await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+      // Chiama direttamente la server action
+      const result = await scrapeAndAnalyze(url);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to start analysis.');
+      if (!result.success || !result.analysis) {
+        const errorMsg = !result.success && result.error ? result.error : 'Failed to start analysis.';
+        throw new Error(errorMsg);
       }
       
-      // Estraiamo il contenuto dell'analisi dalla struttura della risposta di OpenRouter
-      const analysisContent = (data as AnalysisResponse)?.choices?.[0]?.message?.content;
+      // La server action ora restituisce direttamente l'oggetto di analisi
+      const analysisContent = result.analysis;
       if (analysisContent) {
-        setAnalysis(analysisContent);
+        // Formattiamo l'oggetto JSON per una visualizzazione leggibile
+        setAnalysis(JSON.stringify(analysisContent, null, 2));
       } else {
-        throw new Error('Could not parse the analysis from the API response.');
+        throw new Error('Could not parse the analysis from the server action response.');
       }
 
     } catch (err: any) {

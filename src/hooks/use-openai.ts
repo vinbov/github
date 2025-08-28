@@ -20,34 +20,49 @@ export function useOpenAI() {
     setError(null);
     
     try {
-      const response = await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt,
-          screenshot,
-        }),
-      });
+      // Importa la Server Action dinamicamente
+      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Errore nella chiamata API');
+      // Nota: la Server Action attuale non supporta screenshot, 
+      // per ora usiamo solo l'URL dal prompt se presente
+      const urlMatch = prompt.match(/https?:\/\/[^\s]+/);
+      if (!urlMatch) {
+        throw new Error('Nessun URL valido trovato nel prompt');
       }
       
-      const data = await response.json();
+      const result = await scrapeAndAnalyze(urlMatch[0]);
+      
+  const generateAnalysis = async (prompt: string, screenshot?: string): Promise<AnalysisResult | null> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Importa la Server Action dinamicamente
+      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
+      
+      // Nota: la Server Action attuale non supporta screenshot, 
+      // per ora usiamo solo l'URL dal prompt se presente
+      const urlMatch = prompt.match(/https?:\/\/[^\s]+/);
+      if (!urlMatch) {
+        throw new Error('Nessun URL valido trovato nel prompt');
+      }
+      
+      const result = await scrapeAndAnalyze(urlMatch[0]);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Errore durante l\'analisi');
+      }
       
       // Parsing strutturato della risposta
       const analysisResult: AnalysisResult = {
-        messageClarity: data.sections?.messageClarity || data.analysis,
-        visualImpact: data.sections?.visualImpact || "",
-        persuasiveCopy: data.sections?.persuasiveCopy || "",
-        socialProof: data.sections?.socialProof || "",
-        callToAction: data.sections?.callToAction || "",
-        contactForm: data.sections?.contactForm || "",
-        userExperience: data.sections?.userExperience || "",
-        recommendations: data.sections?.recommendations || ""
+        messageClarity: JSON.stringify(result.analysis, null, 2),
+        visualImpact: "",
+        persuasiveCopy: "",
+        socialProof: "",
+        callToAction: "",
+        contactForm: "",
+        userExperience: "",
+        recommendations: ""
       };
       
       return analysisResult;

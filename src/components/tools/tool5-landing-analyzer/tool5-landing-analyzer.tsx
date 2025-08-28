@@ -27,27 +27,24 @@ export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages }: Tool5L
     setError(null);
 
     try {
-      const response = await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
+      // Importa la Server Action dinamicamente
+      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
+      
+      const result = await scrapeAndAnalyze(url);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'An unknown error occurred during analysis.');
+      if (!result.success) {
+        throw new Error(result.error || 'An unknown error occurred during analysis.');
       }
 
-      const analysisContent = (data as AnalysisApiResponse)?.choices?.[0]?.message?.content;
+      const analysisContent = JSON.stringify(result.analysis, null, 2);
       if (!analysisContent) {
-        throw new Error('Could not parse the analysis from the API response.');
+        throw new Error('Could not parse the analysis from the Server Action response.');
       }
 
       const newAnalysis: LandingPageWithAnalysis = {
         id: new Date().toISOString(),
         url: url,
-        analysis: analysisContent,
+        analysis: analysisContent as any, // Cast temporaneo
         timestamp: new Date().toLocaleString(),
       };
 

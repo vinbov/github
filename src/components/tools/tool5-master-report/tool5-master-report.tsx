@@ -33,21 +33,22 @@ export function Tool5MasterReport({ landingPageUrl }: Tool5MasterReportProps) {
   const runFullAnalysis = async () => {
     setState({ name: 'analyzing' });
     try {
-      // Chiamata alla nostra API unificata
-      const response = await fetch('/api/analyze-landing-page', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: landingPageUrl }), // Invia solo l'URL
-      });
+      // Importa la Server Action dinamicamente
+      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
+      
+      // Chiama la Server Action
+      const result = await scrapeAndAnalyze(landingPageUrl);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Errore sconosciuto durante l'analisi");
+      if (!result.success) {
+        throw new Error(result.error || "Errore sconosciuto durante l'analisi");
       }
 
-      // Estraiamo il contenuto dalla risposta di OpenRouter
-      const analysisContent = (data as AnalysisApiResponse)?.choices?.[0]?.message?.content;
+      if (!result.analysis) {
+        throw new Error("Nessuna analisi ricevuta");
+      }
+
+      // Usa l'analisi restituita direttamente dalla Server Action
+      const analysisContent = JSON.stringify(result.analysis, null, 2);
       if (!analysisContent) {
         throw new Error("Non è stato possibile interpretare la risposta dell'API.");
       }
@@ -109,7 +110,21 @@ const LoadingCard = ({ title, description }: { title: string; description: strin
 );
 
 const ErrorCard = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-  <Card className="w-full"><CardHeader><CardTitle className="text-red-600">Errore</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Si è verificato un errore</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></CardContent><CardFooter><Button onClick={onRetry}>Riprova</Azione></Button></CardFooter></Card>
+  <Card className="w-full">
+    <CardHeader>
+      <CardTitle className="text-red-600">Errore</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Si è verificato un errore</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    </CardContent>
+    <CardFooter>
+      <Button onClick={onRetry}>Riprova</Button>
+    </CardFooter>
+  </Card>
 );
 
 const FullReportCard = ({ url, analysis }: { url: string, analysis: Analysis }) => (
