@@ -1,8 +1,11 @@
+console.log("--- LETTURA DI NEXT.CONFIG.MJS ---");
+console.log("Origine consentita da ENV:", process.env.ALLOWED_ORIGIN);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:9002", "fluffy-train-r4xgqp79rgpv3xv7g-9002.app.github.dev"],
+      allowedOrigins: ["localhost:9002", process.env.ALLOWED_ORIGIN].filter(Boolean),
     },
   },
 };
