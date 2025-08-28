@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { scrapeAndAnalyze } from '@/app/actions/test-scrape-actions';
+import { scrapeAndAnalyze } from '../../actions/test-scrape-actions';
 
 export async function POST(request: NextRequest) {
   try {
