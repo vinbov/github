@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 
@@ -20,7 +19,7 @@ export function TopOpportunitiesChart({ results }: TopOpportunitiesChartProps) {
   if (topOpportunities.length === 0) {
     return (
       <p className="text-muted-foreground text-center py-8">
-        Nessuna opportunità significativa trovata (keyword solo per competitor con volume {'>'} 0).
+        Nessuna opportunità significativa trovata (keyword solo per competitor con volume maggiore di 0).
       </p>
     );
   }

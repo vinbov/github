@@ -32,23 +32,6 @@ export function useOpenAI() {
       
       const result = await scrapeAndAnalyze(urlMatch[0]);
       
-  const generateAnalysis = async (prompt: string, screenshot?: string): Promise<AnalysisResult | null> => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Importa la Server Action dinamicamente
-      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
-      
-      // Nota: la Server Action attuale non supporta screenshot, 
-      // per ora usiamo solo l'URL dal prompt se presente
-      const urlMatch = prompt.match(/https?:\/\/[^\s]+/);
-      if (!urlMatch) {
-        throw new Error('Nessun URL valido trovato nel prompt');
-      }
-      
-      const result = await scrapeAndAnalyze(urlMatch[0]);
-      
       if (!result.success) {
         throw new Error(result.error || 'Errore durante l\'analisi');
       }

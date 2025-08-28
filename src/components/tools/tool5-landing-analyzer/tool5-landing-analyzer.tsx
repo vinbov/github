@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { LandingPageWithAnalysis } from '@/lib/types';
+import type { LandingPageWithAnalysis as OriginalLandingPageWithAnalysis } from '@/lib/types';
+
+// Extend the type to include timestamp
+type LandingPageWithAnalysis = OriginalLandingPageWithAnalysis & {
+  timestamp: string;
+};
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,6 +50,11 @@ export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages }: Tool5L
         id: new Date().toISOString(),
         url: url,
         analysis: analysisContent as any, // Cast temporaneo
+        businessType: result.analysis && 'businessType' in result.analysis ? (result.analysis as any).businessType ?? '' : '',
+        primaryGoal: result.analysis && 'primaryGoal' in result.analysis ? (result.analysis as any).primaryGoal ?? '' : '',
+        targetAudience: result.analysis && 'targetAudience' in result.analysis ? (result.analysis as any).targetAudience ?? '' : '',
+        scrapedData: result.analysis && 'scrapedData' in result.analysis ? (result.analysis as any).scrapedData ?? {} : {},
+        analyzedAt: result.analysis && 'analyzedAt' in result.analysis ? (result.analysis as any).analyzedAt ?? new Date().toISOString() : new Date().toISOString(),
         timestamp: new Date().toLocaleString(),
       };
 
@@ -98,7 +108,11 @@ export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages }: Tool5L
               </CardHeader>
               <CardContent>
                 <h3 className="font-semibold mb-2">Risultato Analisi:</h3>
-                <p className="whitespace-pre-wrap text-sm">{page.analysis}</p>
+                <p className="whitespace-pre-wrap text-sm">
+                  {typeof page.analysis === 'string'
+                    ? page.analysis
+                    : JSON.stringify(page.analysis, null, 2)}
+                </p>
               </CardContent>
             </Card>
           ))}
