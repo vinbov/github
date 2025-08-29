@@ -2,12 +2,7 @@
 
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
-import fs from "fs/promises";
-import path from "path";
-// 1. IMPORTO LA FUNZIONE CORRETTA
 import { callOpenRouter } from "@/lib/openrouter";
-
-// 2. RIMUOVO COMPLETAMENTE la definizione di 'type Message' e la funzione 'async function callOpenRouter' da questo file.
 
 export async function scrapeAndAnalyze(url: string) {
   if (!url) {
@@ -29,11 +24,9 @@ export async function scrapeAndAnalyze(url: string) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2" });
 
-    const publicDir = path.join(process.cwd(), "public");
-    await fs.mkdir(publicDir, { recursive: true });
-    const screenshotPathRelative = `/screenshots/${Date.now()}.png`;
-    const screenshotPathFull = path.join(publicDir, screenshotPathRelative);
-    await page.screenshot({ path: screenshotPathFull as `${string}.png` });
+    // MODIFICATO: Genera lo screenshot come stringa Base64 invece di un file.
+    const screenshotBase64 = await page.screenshot({ encoding: "base64" });
+    const screenshotDataUrl = `data:image/png;base64,${screenshotBase64}`;
 
     const pageData = await page.evaluate(() => {
       return {
@@ -106,7 +99,8 @@ export async function scrapeAndAnalyze(url: string) {
     const analysisObject = JSON.parse(analysisJsonString);
 
     return { 
-      screenshotPath: screenshotPathRelative, 
+      // MODIFICATO: Restituisce la stringa Base64 al client.
+      screenshotPath: screenshotDataUrl, 
       analysis: analysisObject
     };
   } catch (error) {

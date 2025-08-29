@@ -1,6 +1,3 @@
-// filepath: src/lib/openrouter.ts
-import 'server-only';
-
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
