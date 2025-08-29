@@ -2,6 +2,7 @@
 
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
+// RIMOSSO: fs e path non sono più necessari per lo screenshot
 import { callOpenRouter } from "@/lib/openrouter";
 
 export async function scrapeAndAnalyze(url: string) {
@@ -14,17 +15,18 @@ export async function scrapeAndAnalyze(url: string) {
   try {
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: { width: 1920, height: 1080 },
+      defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(
         `https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar`
       ),
-      headless: true,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2" });
 
     // MODIFICATO: Genera lo screenshot come stringa Base64 invece di un file.
+    // Questa è la modifica chiave che risolve l'errore EROFS.
     const screenshotBase64 = await page.screenshot({ encoding: "base64" });
     const screenshotDataUrl = `data:image/png;base64,${screenshotBase64}`;
 
