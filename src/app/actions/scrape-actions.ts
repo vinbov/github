@@ -1,28 +1,34 @@
 "use server";
 
-// 1. Importa da 'puppeteer-core' e importa il pacchetto chromium
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
 import fs from "fs/promises";
 import path from "path";
 
-async function callOpenRouter(prompt: string): Promise<string> {
-  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-  if (!OPENROUTER_API_KEY) {
-    throw new Error("La variabile d'ambiente OPENROUTER_API_KEY non è impostata.");
-  }
+type Message = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+// Funzione per la chiamata API, ora con limiti espliciti
+async function callOpenRouter(messages: Message[] | string): Promise<string> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error("Chiave API OpenRouter mancante");
+
+  const finalMessages = typeof messages === 'string' ? [{ role: 'user', content: messages }] : messages;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json"
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "openai/gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      messages: finalMessages,
+      max_tokens: 2048, // 1. FORZA una risposta breve per rientrare nel piano gratuito
       response_format: { type: "json_object" },
-    })
+    }),
   });
 
   if (!response.ok) {
@@ -31,28 +37,20 @@ async function callOpenRouter(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  
-  if (data.choices && data.choices.length > 0 && data.choices[0].message) {
-    return data.choices[0].message.content;
-  } else {
-    throw new Error("Struttura della risposta non valida dall'API di OpenRouter");
-  }
+  return data.choices?.[0]?.message?.content || "{}";
 }
 
 export async function scrapeAndAnalyze(url: string) {
   if (!url) {
-    return {
-      success: false,
-      error: "URL non fornito"
-    };
+    return { success: false, error: "URL non fornito." };
   }
 
   let browser = null;
 
   try {
-    // 2. Configura Puppeteer per l'ambiente serverless di Vercel
     browser = await puppeteer.launch({
       args: chromium.args,
+      defaultViewport: { width: 1920, height: 1080 },
       executablePath: await chromium.executablePath(
         `https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar`
       ),
@@ -60,25 +58,14 @@ export async function scrapeAndAnalyze(url: string) {
     });
 
     const page = await browser.newPage();
-    
-    // Imposta user agent per evitare blocchi
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    await page.goto(url, { 
-      waitUntil: 'domcontentloaded',
-      timeout: 30000 
-    });
+    await page.goto(url, { waitUntil: "networkidle2" });
 
-    // Crea la directory per gli screenshot se non esiste
-    const screenshotsDir = path.join(process.cwd(), 'public', 'screenshots');
-    await fs.mkdir(screenshotsDir, { recursive: true });
+    const publicDir = path.join(process.cwd(), "public");
+    await fs.mkdir(publicDir, { recursive: true });
+    const screenshotPathRelative = `/screenshots/${Date.now()}.png`;
+    const screenshotPathFull = path.join(publicDir, screenshotPathRelative);
+    await page.screenshot({ path: screenshotPathFull as `${string}.png` });
 
-    // Crea uno screenshot della pagina
-    const filename = `${Date.now()}-${new URL(url).hostname}.png`;
-    const screenshotFilePath = path.join(screenshotsDir, filename);
-    await page.screenshot({ path: screenshotFilePath as `${string}.png`, fullPage: true });
-    const screenshotPath = `/screenshots/${filename}`;
-
-    // Extract page data
     const pageData = await page.evaluate(() => {
       return {
         title: document.title,
@@ -96,9 +83,17 @@ export async function scrapeAndAnalyze(url: string) {
           alt: img.getAttribute('alt') || '',
           src: img.getAttribute('src')
         })),
-        bodyText: document.body?.innerText?.trim().substring(0, 4000) || ''
+        bodyText: document.body?.innerText?.trim() || ''
       };
     });
+
+    // 2. RIDUCI la quantità di dati inviati all'AI
+    const truncatedPageData = {
+      ...pageData,
+      links: pageData.links.slice(0, 20), // Invia solo i primi 20 link
+      images: pageData.images.slice(0, 10), // Invia solo le prime 10 immagini
+      bodyText: pageData.bodyText.substring(0, 4000) // Tronca il testo del corpo
+    };
 
     const analysisPrompt = `
       Agisci come un consulente esperto di landing page con 30 anni di esperienza nel marketing a risposta diretta.
@@ -133,25 +128,24 @@ export async function scrapeAndAnalyze(url: string) {
 
       Dati della pagina da analizzare:
       ---
-      ${JSON.stringify(pageData)}
+      ${JSON.stringify(truncatedPageData)}
       ---
     `;
     
     const analysisJsonString = await callOpenRouter(analysisPrompt);
 
-    await browser.close();
-
     const analysisObject = JSON.parse(analysisJsonString);
 
     return { 
-      screenshotPath, 
+      screenshotPath: screenshotPathRelative, 
       analysis: analysisObject
     };
   } catch (error) {
     console.error("Errore durante lo scraping o l'analisi:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to analyze the page'
-    };
+    return { success: false, error: (error as Error).message };
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 }
