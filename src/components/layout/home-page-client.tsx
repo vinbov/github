@@ -182,7 +182,6 @@ export default function HomePageClient({ scrapeAndAnalyze }: HomePageClientProps
           {activeTool === 'tool5' && (
             <div id="tool5-container">
               <Tool5MasterReport
-                scrapeAndAnalyze={scrapeAndAnalyze}
                 tool1Data={{
                   comparisonResultsCount: tool1ComparisonResultsCount,
                   rawResults: tool1ComparisonResults,

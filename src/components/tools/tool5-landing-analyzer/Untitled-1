@@ -1,0 +1,12 @@
+import { useState } from "react";
+
+// Questo stato viene creato con valori a zero...
+const [tool1ComparisonResultsCount, setTool1ComparisonResultsCount] = useState({
+  common: 0,
+  mySiteOnly: 0,
+  competitorOnly: 0,
+  totalUnique: 0,
+});
+
+// ...ma non c'è nessun codice che chiami `setTool1ComparisonResultsCount` per aggiornarlo
+// quando i risultati del Tool 1 cambiano.
