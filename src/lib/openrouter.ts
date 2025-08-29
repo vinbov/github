@@ -1,6 +1,11 @@
 // filepath: src/lib/openrouter.ts
 import 'server-only';
 
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 export async function analyzeContentWithOpenRouter(pageContent: string): Promise<any> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -36,35 +41,32 @@ export async function analyzeContentWithOpenRouter(pageContent: string): Promise
   return response.json();
 }
 
-export async function callOpenRouter(prompt: string): Promise<string> {
+// La funzione ora accetta sia una stringa semplice che un array di messaggi
+export async function callOpenRouter(messages: Message[] | string): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.error("ERRORE: La chiave OPENROUTER_API_KEY non è stata trovata in .env.local");
     throw new Error("Chiave API OpenRouter mancante");
   }
 
+  // Se riceve una stringa, la trasforma in un array di messaggi standard
+  const finalMessages = typeof messages === 'string' 
+    ? [{ role: 'user', content: messages }] 
+    : messages;
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      "HTTP-Referer": "https://seotoolkitpro.app",
+      "X-Title": "SEO Toolkit Pro",
     },
     body: JSON.stringify({
       model: "openai/gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `
-            Sei "SeoPro Assistant", un'intelligenza artificiale esperta integrata in 'SEO Toolkit Pro'.
-            Il tuo scopo è aiutare gli utenti a sfruttare al massimo il tool.
-            Rispondi in modo conciso e amichevole. Se non conosci una risposta, ammettilo.
-          `
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      messages: finalMessages,
+      max_tokens: 2048,
+      response_format: finalMessages.some(m => m.content.includes("JSON")) ? { type: "json_object" } : undefined,
     }),
   });
 

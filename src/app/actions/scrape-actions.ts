@@ -1,6 +1,9 @@
-import "server-only";
+"use server";
+
 import puppeteer from "puppeteer";
-// import { analyzeLandingPage } from "@/ai/flows/analyze-landing-page";
+import { callOpenRouter } from "@/lib/openrouter";
+import fs from "fs/promises";
+import path from "path";
 
 export async function scrapeAndAnalyze(url: string) {
   if (!url) {
@@ -28,12 +31,18 @@ export async function scrapeAndAnalyze(url: string) {
     
     // Imposta user agent per evitare blocchi
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    
-    // Navigate to the page
     await page.goto(url, { 
       waitUntil: 'domcontentloaded',
       timeout: 30000 
     });
+
+    // Take a screenshot
+    const screenshotDir = path.join(process.cwd(), 'public', 'screenshots');
+    await fs.mkdir(screenshotDir, { recursive: true });
+    const filename = `${Date.now()}-${new URL(url).hostname.replace(/[^a-z0-9]/gi, '_')}.png`;
+    const screenshotFilePath = path.join(screenshotDir, filename);
+    await page.screenshot({ path: screenshotFilePath as `${string}.png`, fullPage: true });
+    const screenshotPath = `/screenshots/${filename}`;
 
     // Extract page data
     const pageData = await page.evaluate(() => {
@@ -48,28 +57,67 @@ export async function scrapeAndAnalyze(url: string) {
         links: Array.from(document.querySelectorAll('a[href]')).map(a => ({
           text: a.textContent?.trim(),
           href: a.getAttribute('href')
-        })).filter(link => link.text && link.href),
+        })).filter(link => link.text && link.href && link.href.charAt(0) !== '#'),
         images: Array.from(document.querySelectorAll('img[src]')).map(img => ({
           alt: img.getAttribute('alt') || '',
           src: img.getAttribute('src')
         })),
-        text: document.body?.textContent?.trim().substring(0, 2000) || '' // Limita a 2000 caratteri
+        bodyText: document.body?.innerText?.trim().substring(0, 4000) || ''
       };
     });
 
-    const textContent = await page.evaluate(() => document.body.innerText);
+    const analysisPrompt = `
+      Agisci come un consulente esperto di landing page con 30 anni di esperienza nel marketing a risposta diretta.
+      Analizza i dati della landing page forniti utilizzando il metodo "Oggi Vinci Tu" e la FCB Grid.
 
-    // const analysis = await analyzeLandingPage({ pageContent: textContent });
+      Rispondi ESCLUSIVAMENTE con un oggetto JSON valido che abbia la seguente struttura:
+      {
+        "preliminaryAnalysis": {
+          "fcbQuadrant": "Identifica il quadrante FCB (es. 'Funzionale - Alto Coinvolgimento') e motiva la scelta.",
+          "strategyCoherence": "Valuta la coerenza tra prodotto e strategia.",
+          "targetAudience": "Determina se il target è definito correttamente."
+        },
+        "structureAndFlow": {
+          "aboveTheFold": { "score": 0, "notes": "Verifica problema, soluzione e immagine." },
+          "attractionRules": { "score": 0, "notes": "Analizza headline e prima impressione." },
+          "interestRules": { "score": 0, "notes": "Valuta verità incontrovertibili e interesse progressivo." },
+          "trustForging": { "score": 0, "notes": "Esamina testimonianze e credibilità." },
+          "desireRules": { "score": 0, "notes": "Controlla ancoraggio, scarsità e urgenza." },
+          "actionRules": { "score": 0, "notes": "Valuta UX del form e CTA." }
+        },
+        "criticalIssues": [
+          "Identifica il primo problema più critico.",
+          "Identifica il secondo problema più critico.",
+          "Identifica il terzo problema più critico."
+        ],
+        "priorityOptimizations": [
+          { "optimization": "Prima ottimizzazione prioritaria.", "estimatedImpact": "Alto/Medio/Basso" },
+          { "optimization": "Seconda ottimizzazione prioritaria.", "estimatedImpact": "Alto/Medio/Basso" },
+          { "optimization": "Terza ottimizzazione prioritaria.", "estimatedImpact": "Alto/Medio/Basso" }
+        ]
+      }
+
+      Dati della pagina da analizzare:
+      ---
+      ${JSON.stringify(pageData)}
+      ---
+    `;
+    
+    const analysisJsonString = await callOpenRouter(analysisPrompt);
 
     await browser.close();
 
-    // return { screenshotPath, analysis };
-    return { screenshotPath, analysis: { message: "Analisi AI temporaneamente disabilitata. La logica deve essere aggiornata a OpenRouter." } };
+    const analysisObject = JSON.parse(analysisJsonString);
+
+    return { 
+      screenshotPath, 
+      analysis: analysisObject
+    };
   } catch (error) {
-    console.error("Errore durante lo scraping:", error);
+    console.error("Errore durante lo scraping o l'analisi:", error);
     return {
       success: false,
-      error: error.message || 'Failed to analyze the page'
+      error: error instanceof Error ? error.message : 'Failed to analyze the page'
     };
   }
 }

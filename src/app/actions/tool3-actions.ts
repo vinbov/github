@@ -1,5 +1,4 @@
 "use server";
-import "server-only";
 import { callOpenRouter } from "@/lib/openrouter";
 
 export async function analyzeAdAngleAction(params: {
