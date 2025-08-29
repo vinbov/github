@@ -1,36 +1,17 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { AlertCircle, Play } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import ReactMarkdown from 'react-markdown';
+import { generateMasterReportAction } from '@/app/actions/report-actions'; // 1. Importo la action corretta
 import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscAnalyzedData } from '@/lib/types';
 import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
 
-// Tipi semplificati per il nuovo flusso
-type Analysis = {
-  recommendations: string;
-};
-
-type AnalysisApiResponse = {
-  choices: { message: { content: string; }; }[];
-};
-
-// Stato del componente semplificato per un flusso a singolo passaggio
-type ComponentState =
-  | { name: 'idle' }
-  | { name: 'analyzing' }
-  | { name: 'analysis_failed'; error: string }
-  | { name: 'complete'; analysis: Analysis };
-
+// Definisco le props che il componente accetta
 interface Tool5MasterReportProps {
-  scrapeAndAnalyze: (url: string) => Promise<{
-    screenshotPath: string;
-    analysis: { message: string };
-  }>;
   tool1Data: {
     comparisonResultsCount: {
       common: number;
@@ -61,133 +42,85 @@ interface Tool5MasterReportProps {
   };
 }
 
-export function Tool5MasterReport({ 
-  scrapeAndAnalyze,
+export function Tool5MasterReport({
   tool1Data,
   tool2Data,
   toolDataForSeoData,
   tool3Data,
   tool4Data,
 }: Tool5MasterReportProps) {
-  const [state, setState] = useState<ComponentState>({ name: 'idle' });
-  const [landingPageUrl, setLandingPageUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reportContent, setReportContent] = useState<string>('');
 
-  // Funzione unica per avviare l'analisi completa
-  const runFullAnalysis = async () => {
-    setState({ name: 'analyzing' });
+  // 2. Questa è la funzione CORRETTA per generare il report
+  const handleGenerateReport = async () => {
+    setIsLoading(true);
+    setError(null);
+    setReportContent('');
+
     try {
-      // Chiama la funzione scrapeAndAnalyze passata tramite props
-      const result = await scrapeAndAnalyze(landingPageUrl);
-
-      if (!result.analysis) {
-        throw new Error("Nessuna analisi ricevuta");
-      }
-
-      // Usa l'analisi restituita direttamente dalla funzione
-      const analysisContent = JSON.stringify(result.analysis, null, 2);
-      if (!analysisContent) {
-        throw new Error("Non è stato possibile interpretare la risposta dell'API.");
-      }
-
-      const analysisResult: Analysis = {
-        recommendations: analysisContent,
+      // Creo i riassunti dei dati da inviare all'AI
+      const summaries = {
+        tool1Summary: `Conteggi: ${tool1Data.comparisonResultsCount.common} comuni, ${tool1Data.comparisonResultsCount.mySiteOnly} solo mie, ${tool1Data.comparisonResultsCount.competitorOnly} solo competitor. Totale uniche: ${tool1Data.comparisonResultsCount.totalUnique}.`,
+        tool2Summary: `Contesto: ${tool2Data.industryContext}. Trovate ${tool2Data.analysisResults.length} keyword analizzate.`,
+        dataForSeoSummary: `Keywords iniziali: '${toolDataForSeoData.seedKeywords}'. Trovate ${toolDataForSeoData.totalIdeasFound} idee.`,
+        tool3Summary: `Analizzati ${tool3Data.scrapedAds.length} annunci, di cui ${tool3Data.adsWithAnalysis.length} con analisi dell'angolo di marketing.`,
+        tool4Summary: `Contesto filtri GSC: ${tool4Data.gscFiltersDisplay}. Analisi disponibile: ${tool4Data.analyzedGscData ? 'Sì' : 'No'}.`
       };
 
-      setState({ name: 'complete', analysis: analysisResult });
+      // Chiamo la Server Action corretta con i dati riassunti
+      const report = await generateMasterReportAction(summaries);
+      setReportContent(report);
 
     } catch (err: any) {
-      setState({ name: 'analysis_failed', error: err.message });
+      setError(err.message || "Si è verificato un errore sconosciuto durante la generazione del report.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Avvia l'analisi automaticamente quando l'URL cambia
-  useEffect(() => {
-    if (landingPageUrl) {
-      runFullAnalysis();
-    }
-  }, [landingPageUrl]);
+  // Funzione per verificare se ci sono dati sufficienti per generare il report
+  const hasEnoughData = () => {
+    return tool1Data.rawResults.length > 0 || tool2Data.analysisResults.length > 0 || toolDataForSeoData.results.length > 0;
+  };
 
-  // Render condizionale basato sul nuovo stato semplificato
-  switch (state.name) {
-    case 'analyzing':
-      return <LoadingCard title="Analisi AI in corso..." description="Stiamo analizzando la tua landing page con OpenRouter..." />;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Report Strategico Consolidato</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center">
+          <p className="text-center text-muted-foreground mb-4">
+            Questo strumento analizza i dati raccolti dagli altri tool e genera un report strategico con un piano d'azione.
+          </p>
+          <Button onClick={handleGenerateReport} disabled={isLoading || !hasEnoughData()}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Genera Report Strategico'}
+          </Button>
+          {!hasEnoughData() && <p className="text-sm text-destructive mt-2">Esegui almeno un'analisi negli altri tool per abilitare il report.</p>}
+        </div>
 
-    case 'analysis_failed':
-      return <ErrorCard error={state.error} onRetry={runFullAnalysis} />;
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Errore</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-    case 'complete':
-      return (
-        <FullReportCard
-          url={landingPageUrl}
-          analysis={state.analysis}
-        />
-      );
-
-    default:
-      // Mostra un pulsante per avviare se non parte in automatico
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Pronto per l'analisi</CardTitle>
-            <CardDescription>Premi il pulsante per avviare l'analisi della landing page.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Input
-              value={landingPageUrl}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLandingPageUrl(e.target.value)}
-              placeholder="Inserisci l'URL della landing page"
-              className="mb-4"
-            />
-          </CardContent>
-          <CardFooter>
-            <Button onClick={runFullAnalysis}><Play className="mr-2 h-4 w-4" /> Avvia Analisi</Button>
-          </CardFooter>
-        </Card>
-      );
-  }
+        {reportContent && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Risultato del Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <ReactMarkdown>{reportContent}</ReactMarkdown>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
-
-// --- Componenti di UI (leggermente modificati) ---
-
-const LoadingCard = ({ title, description }: { title: string; description: string }) => (
-  <Card className="w-full"><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent><div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div></CardContent></Card>
-);
-
-const ErrorCard = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-  <Card className="w-full">
-    <CardHeader>
-      <CardTitle className="text-red-600">Errore</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Si è verificato un errore</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    </CardContent>
-    <CardFooter>
-      <Button onClick={onRetry}>Riprova</Button>
-    </CardFooter>
-  </Card>
-);
-
-const FullReportCard = ({ url, analysis }: { url: string, analysis: Analysis }) => (
-  <Card className="w-full">
-    <CardHeader>
-      <CardTitle>Analisi Completa della Landing Page</CardTitle>
-      <CardDescription>Valutazione di {url}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <Tabs defaultValue="recommendations">
-        <TabsList>
-          <TabsTrigger value="recommendations">Raccomandazioni e Analisi</TabsTrigger>
-        </TabsList>
-        <TabsContent value="recommendations" className="mt-4">
-          <div className="whitespace-pre-wrap p-4 bg-slate-50 rounded-lg border text-sm">
-            {analysis.recommendations}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </CardContent>
-  </Card>
-);
