@@ -1,19 +1,31 @@
-'use server';
+"use server";
+import "server-only";
+import { callOpenRouter } from "@/lib/openrouter";
 
-import type {
-  AnalyzeFacebookAdMarketingAngleInput,
-  AnalyzeFacebookAdMarketingAngleOutput,
-} from '@/lib/types'; 
-import { analyzeFacebookAdMarketingAngle } from '@/ai/flows/analyze-facebook-ad-marketing-angle';
+export async function analyzeAdAngleAction(params: {
+  adText: string;
+  targetAudience: string;
+  productDescription: string;
+}) {
+  if (!params.adText || !params.targetAudience || !params.productDescription) {
+    throw new Error("Tutti i campi sono obbligatori");
+  }
 
-// Rimuovo tutte le funzioni parseOpenAIResponse, buildOpenAIPrompt, commenti e log relativi a OpenAI
+  const analysisPrompt = `
+    Analizza il seguente testo di un annuncio pubblicitario. Fornisci un'analisi del suo "marketing angle" e suggerisci miglioramenti.
 
-const INPUT_TOKEN_THRESHOLD = 3000; // Soglia per i token di input stimati
+    Dettagli:
+    - Testo dell'annuncio: "${params.adText}"
+    - Target di riferimento: "${params.targetAudience}"
+    - Descrizione del prodotto/servizio: "${params.productDescription}"
 
-export async function analyzeAdAngleAction(
-  input: AnalyzeFacebookAdMarketingAngleInput
-): Promise<AnalyzeFacebookAdMarketingAngleOutput> {
-  // Chiamata diretta al flow Genkit (Gemini)
-  return await analyzeFacebookAdMarketingAngle(input);
+    L'analisi dovrebbe includere:
+    1.  Qual è l'angolo di marketing principale utilizzato (es. urgenza, prova sociale, esclusività, soluzione a un problema)?
+    2.  Punti di forza dell'annuncio.
+    3.  Suggerimenti concreti per rendere l'annuncio più efficace per il target specificato.
+  `;
+
+  const result = await callOpenRouter(analysisPrompt);
+  return result;
 }
 

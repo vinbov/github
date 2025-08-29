@@ -1,11 +1,17 @@
-"use server";
+import "server-only";
+import puppeteer from "puppeteer";
+// import { analyzeLandingPage } from "@/ai/flows/analyze-landing-page";
 
 export async function scrapeAndAnalyze(url: string) {
+  if (!url) {
+    return {
+      success: false,
+      error: "URL non fornito"
+    };
+  }
+
   try {
-    // Import dinamico solo di puppeteer base per evitare problemi di analisi statica
-    const puppeteer = await import('puppeteer');
-    
-    const browser = await puppeteer.default.launch({
+    const browser = await puppeteer.launch({
       headless: true,
       args: [
         '--no-sandbox',
@@ -51,15 +57,16 @@ export async function scrapeAndAnalyze(url: string) {
       };
     });
 
+    const textContent = await page.evaluate(() => document.body.innerText);
+
+    // const analysis = await analyzeLandingPage({ pageContent: textContent });
+
     await browser.close();
 
-    return {
-      success: true,
-      analysis: pageData
-    };
-
-  } catch (error: any) {
-    console.error('Error in scrapeAndAnalyze:', error);
+    // return { screenshotPath, analysis };
+    return { screenshotPath, analysis: { message: "Analisi AI temporaneamente disabilitata. La logica deve essere aggiornata a OpenRouter." } };
+  } catch (error) {
+    console.error("Errore durante lo scraping:", error);
     return {
       success: false,
       error: error.message || 'Failed to analyze the page'
