@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react'; // 1. Importo useEffect
+import React, { useState, useEffect } from 'react';
 import { AppHeader } from '@/components/layout/app-header';
 import { ToolNavigation } from '@/components/layout/tool-navigation';
 import { Tool1Comparator } from '@/components/tools/tool1-comparator/tool1-comparator';
@@ -10,16 +10,15 @@ import { Tool3Scraper } from '@/components/tools/tool3-scraper/tool3-scraper';
 import { Tool4GSCAnalyzer } from '@/components/tools/tool4-gsc-analyzer/tool4-gsc-analyzer';
 import { Tool5MasterReport } from '@/components/tools/tool5-master-report/tool5-master-report';
 import { Tool5LandingAnalyzer } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
-import { ChatWidget } from '@/components/chat/chat-widget'; // AGGIUNTO
+import { ChatWidget } from '@/components/chat/chat-widget';
 import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData } from '@/lib/types';
 import type { LandingPageWithAnalysis } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
+
 import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
 
-// Definisco il tipo della funzione che riceviamo come prop
-type ScrapeAndAnalyzeFn = (url: string) => Promise<any>;
-
+// AGGIUNTO: Definisco l'interfaccia per le props come suggerito.
 interface HomePageClientProps {
-  scrapeAndAnalyze: ScrapeAndAnalyzeFn;
+  scrapeAndAnalyze: (url: string) => Promise<any>;
 }
 
 const tools = [
@@ -30,9 +29,11 @@ const tools = [
   { id: 'tool4', label: 'Analizzatore Dati GSC' },
   { id: 'tool5', label: 'Report Consolidato' },
   { id: 'tool5Landing', label: 'Analizzatore Landing Page' },
+  { id: 'tool5Report', label: 'Report Strategico Consolidato' },
 ];
 
-export default function HomePageClient({ scrapeAndAnalyze }: HomePageClientProps) {
+// AGGIUNTO: Il componente ora accetta la prop 'scrapeAndAnalyze'.
+export function HomePageClient({ scrapeAndAnalyze }: HomePageClientProps) {
   const [activeTool, setActiveTool] = useState<string>('tool1');
 
   // --- State for Tool 1 ---
@@ -213,12 +214,18 @@ export default function HomePageClient({ scrapeAndAnalyze }: HomePageClientProps
               <Tool5LandingAnalyzer
                 analyzedPages={analyzedPages}
                 setAnalyzedPages={setAnalyzedPages}
-                scrapeAndAnalyze={scrapeAndAnalyze}
+                scrapeAndAnalyze={scrapeAndAnalyze} // AGGIUNTO: Passo la prop al componente figlio.
               />
             </div>
           )}
+          {activeTool === 'tool5Report' && (
+            <div id="tool5Report-container">
+              {/* Qui andrà il contenuto per il Report Strategico Consolidato */}
+            </div>
+          )}
         </main>
-                </div>
-              </div>
-            );
-          }
+      </div>
+      <ChatWidget />
+    </div>
+  );
+}

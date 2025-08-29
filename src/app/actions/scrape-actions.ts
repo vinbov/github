@@ -15,11 +15,11 @@ export async function scrapeAndAnalyze(url: string) {
   try {
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
+      defaultViewport: null,
       executablePath: await chromium.executablePath(
         `https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar`
       ),
-      headless: chromium.headless,
+      headless: true,
     });
 
     const page = await browser.newPage();

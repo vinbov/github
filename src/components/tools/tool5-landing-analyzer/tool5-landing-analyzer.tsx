@@ -15,7 +15,6 @@ export type LandingPageWithAnalysis = {
   timestamp: string;
 };
 
-// NUOVO COMPONENTE PER RENDERIZZARE IL REPORT
 function AnalysisReport({ analysis }: { analysis: any }) {
   if (!analysis || typeof analysis !== 'object') {
     return <p>{analysis?.message || 'Nessuna analisi disponibile.'}</p>;
@@ -73,12 +72,10 @@ function AnalysisReport({ analysis }: { analysis: any }) {
 }
 
 
-type ScrapeAndAnalyzeFn = (url: string) => Promise<any>;
-
 type Tool5LandingAnalyzerProps = {
   analyzedPages: LandingPageWithAnalysis[];
   setAnalyzedPages: React.Dispatch<React.SetStateAction<LandingPageWithAnalysis[]>>;
-  scrapeAndAnalyze: ScrapeAndAnalyzeFn;
+  scrapeAndAnalyze: (url: string) => Promise<any>; // AGGIUNTO: La prop è ora richiesta.
 };
 
 export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages, scrapeAndAnalyze }: Tool5LandingAnalyzerProps) {
@@ -92,10 +89,11 @@ export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages, scrapeAn
     setError(null);
 
     try {
+      // La chiamata ora usa la funzione ricevuta come prop.
       const rawResult = await scrapeAndAnalyze(url);
 
-      if (rawResult.success === false || !rawResult.screenshotPath) {
-        throw new Error(rawResult.error || 'Analisi fallita.');
+      if (!rawResult || rawResult.success === false) {
+        throw new Error(rawResult?.error || 'Analisi fallita.');
       }
 
       const newPage: LandingPageWithAnalysis = {
