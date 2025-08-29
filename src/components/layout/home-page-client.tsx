@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // 1. Importo useEffect
 import { AppHeader } from '@/components/layout/app-header';
 import { ToolNavigation } from '@/components/layout/tool-navigation';
 import { Tool1Comparator } from '@/components/tools/tool1-comparator/tool1-comparator';
@@ -45,6 +45,22 @@ export default function HomePageClient({ scrapeAndAnalyze }: HomePageClientProps
     competitorOnly: 0,
     totalUnique: 0,
   });
+
+  // 2. AGGIUNGO QUESTO BLOCCO
+  // Questo effetto si attiva ogni volta che 'tool1ComparisonResults' cambia
+  useEffect(() => {
+    if (tool1ComparisonResults.length > 0) {
+      setTool1ComparisonResultsCount({
+        common: tool1ComparisonResults.filter(r => r.status === 'common').length,
+        mySiteOnly: tool1ComparisonResults.filter(r => r.status === 'mySiteOnly').length,
+        competitorOnly: tool1ComparisonResults.filter(r => r.status === 'competitorOnly').length,
+        totalUnique: new Set(tool1ComparisonResults.map(r => r.keyword)).size,
+      });
+    } else {
+      // Resetta se non ci sono risultati
+      setTool1ComparisonResultsCount({ common: 0, mySiteOnly: 0, competitorOnly: 0, totalUnique: 0 });
+    }
+  }, [tool1ComparisonResults]); // La dipendenza che fa scattare l'aggiornamento
 
   // --- State for Tool 2 ---
   const [tool2Industry, setTool2Industry] = useState('');
