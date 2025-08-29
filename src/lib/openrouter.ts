@@ -44,29 +44,24 @@ export async function analyzeContentWithOpenRouter(pageContent: string): Promise
 // La funzione ora accetta sia una stringa semplice che un array di messaggi
 export async function callOpenRouter(messages: Message[] | string): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.error("ERRORE: La chiave OPENROUTER_API_KEY non è stata trovata in .env.local");
-    throw new Error("Chiave API OpenRouter mancante");
-  }
+  if (!apiKey) throw new Error("Chiave API OpenRouter mancante");
 
-  // Se riceve una stringa, la trasforma in un array di messaggi standard
-  const finalMessages = typeof messages === 'string' 
-    ? [{ role: 'user', content: messages }] 
-    : messages;
+  const finalMessages = typeof messages === 'string' ? [{ role: 'user', content: messages }] : messages;
+
+  const needsJson = finalMessages.some(m => m.content.includes("Rispondi ESCLUSIVAMENTE con un oggetto JSON valido"));
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://seotoolkitpro.app",
-      "X-Title": "SEO Toolkit Pro",
     },
     body: JSON.stringify({
       model: "openai/gpt-4o",
       messages: finalMessages,
-      max_tokens: 2048,
-      response_format: finalMessages.some(m => m.content.includes("JSON")) ? { type: "json_object" } : undefined,
+      // MODIFICATO: Ridotto drasticamente per rientrare nei crediti rimanenti.
+      max_tokens: 1000, 
+      response_format: needsJson ? { type: "json_object" } : undefined,
     }),
   });
 
@@ -77,5 +72,5 @@ export async function callOpenRouter(messages: Message[] | string): Promise<stri
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || "Nessuna risposta ricevuta dall'AI.";
+  return data.choices?.[0]?.message?.content || (needsJson ? "{}" : "Nessuna risposta dall'AI.");
 }

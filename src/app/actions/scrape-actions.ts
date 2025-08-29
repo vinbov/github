@@ -4,41 +4,10 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
 import fs from "fs/promises";
 import path from "path";
+// 1. IMPORTO LA FUNZIONE CORRETTA
+import { callOpenRouter } from "@/lib/openrouter";
 
-type Message = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
-
-// Funzione per la chiamata API, ora con limiti espliciti
-async function callOpenRouter(messages: Message[] | string): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("Chiave API OpenRouter mancante");
-
-  const finalMessages = typeof messages === 'string' ? [{ role: 'user', content: messages }] : messages;
-
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/gpt-4o",
-      messages: finalMessages,
-      max_tokens: 2048, // 1. FORZA una risposta breve per rientrare nel piano gratuito
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Errore API OpenRouter: ${response.statusText} - ${errorBody}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "{}";
-}
+// 2. RIMUOVO COMPLETAMENTE la definizione di 'type Message' e la funzione 'async function callOpenRouter' da questo file.
 
 export async function scrapeAndAnalyze(url: string) {
   if (!url) {
