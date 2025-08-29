@@ -1,9 +1,43 @@
 "use server";
 
-import puppeteer from "puppeteer";
-import { callOpenRouter } from "@/lib/openrouter";
+// 1. Importa da 'puppeteer-core' e importa il pacchetto chromium
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 import fs from "fs/promises";
 import path from "path";
+
+async function callOpenRouter(prompt: string): Promise<string> {
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("La variabile d'ambiente OPENROUTER_API_KEY non è impostata.");
+  }
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "openai/gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    })
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Errore API OpenRouter: ${response.statusText} - ${errorBody}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+    return data.choices[0].message.content;
+  } else {
+    throw new Error("Struttura della risposta non valida dall'API di OpenRouter");
+  }
+}
 
 export async function scrapeAndAnalyze(url: string) {
   if (!url) {
@@ -13,18 +47,16 @@ export async function scrapeAndAnalyze(url: string) {
     };
   }
 
+  let browser = null;
+
   try {
-    const browser = await puppeteer.launch({
+    // 2. Configura Puppeteer per l'ambiente serverless di Vercel
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(
+        `https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar`
+      ),
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu'
-      ]
     });
 
     const page = await browser.newPage();
@@ -36,11 +68,13 @@ export async function scrapeAndAnalyze(url: string) {
       timeout: 30000 
     });
 
-    // Take a screenshot
-    const screenshotDir = path.join(process.cwd(), 'public', 'screenshots');
-    await fs.mkdir(screenshotDir, { recursive: true });
-    const filename = `${Date.now()}-${new URL(url).hostname.replace(/[^a-z0-9]/gi, '_')}.png`;
-    const screenshotFilePath = path.join(screenshotDir, filename);
+    // Crea la directory per gli screenshot se non esiste
+    const screenshotsDir = path.join(process.cwd(), 'public', 'screenshots');
+    await fs.mkdir(screenshotsDir, { recursive: true });
+
+    // Crea uno screenshot della pagina
+    const filename = `${Date.now()}-${new URL(url).hostname}.png`;
+    const screenshotFilePath = path.join(screenshotsDir, filename);
     await page.screenshot({ path: screenshotFilePath as `${string}.png`, fullPage: true });
     const screenshotPath = `/screenshots/${filename}`;
 
