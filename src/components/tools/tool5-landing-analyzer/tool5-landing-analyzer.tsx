@@ -4,13 +4,13 @@ import React, { useState } from 'react';
 import type { LandingPageWithAnalysis as OriginalLandingPageWithAnalysis } from '@/lib/types';
 
 // Extend the type to include timestamp
-type LandingPageWithAnalysis = OriginalLandingPageWithAnalysis & {
+export type LandingPageWithAnalysis = OriginalLandingPageWithAnalysis & {
   timestamp: string;
 };
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 type Tool5LandingAnalyzerProps = {
   analyzedPages: LandingPageWithAnalysis[];
@@ -35,7 +35,30 @@ export function Tool5LandingAnalyzer({ analyzedPages, setAnalyzedPages }: Tool5L
       // Importa la Server Action dinamicamente
       const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
       
-      const result = await scrapeAndAnalyze(url);
+      type ScrapeAndAnalyzeResult = {
+        success: boolean;
+        error?: string;
+        analysis?: {
+          businessType?: string;
+          primaryGoal?: string;
+          targetAudience?: string;
+          scrapedData?: any;
+          analyzedAt?: string;
+          [key: string]: any;
+        };
+      };
+
+      const rawResult = await scrapeAndAnalyze(url);
+
+      // Normalize the result to always have a 'success' boolean property
+      const result: ScrapeAndAnalyzeResult =
+        typeof rawResult.success === 'boolean'
+          ? rawResult
+          : {
+              success: true,
+              analysis: rawResult.analysis,
+              // Optionally include other properties like screenshotPath if needed
+            };
 
       if (!result.success) {
         throw new Error(result.error || 'An unknown error occurred during analysis.');

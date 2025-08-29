@@ -1,10 +1,14 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AlertCircle, Play } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscAnalyzedData } from '@/lib/types';
+import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
 
 // Tipi semplificati per il nuovo flusso
 type Analysis = {
@@ -22,32 +26,64 @@ type ComponentState =
   | { name: 'analysis_failed'; error: string }
   | { name: 'complete'; analysis: Analysis };
 
-export interface Tool5MasterReportProps {
-  landingPageUrl: string;
+interface Tool5MasterReportProps {
+  scrapeAndAnalyze: (url: string) => Promise<{
+    screenshotPath: string;
+    analysis: { message: string };
+  }>;
+  tool1Data: {
+    comparisonResultsCount: {
+      common: number;
+      mySiteOnly: number;
+      competitorOnly: number;
+      totalUnique: number;
+    };
+    rawResults: ComparisonResult[];
+    activeCompetitorNames: string[];
+  };
+  tool2Data: {
+    analysisResults: PertinenceAnalysisResult[];
+    industryContext: string;
+  };
+  toolDataForSeoData: {
+    seedKeywords: string;
+    locationContext: string;
+    results: DataForSEOKeywordMetrics[];
+    totalIdeasFound: number;
+  };
+  tool3Data: {
+    scrapedAds: ScrapedAd[];
+    adsWithAnalysis: AdWithAngleAnalysis[];
+  };
+  tool4Data: {
+    analyzedGscData: GscAnalyzedData | null;
+    gscFiltersDisplay: string;
+  };
 }
 
-export function Tool5MasterReport({ landingPageUrl }: Tool5MasterReportProps) {
+export function Tool5MasterReport({ 
+  scrapeAndAnalyze,
+  tool1Data,
+  tool2Data,
+  toolDataForSeoData,
+  tool3Data,
+  tool4Data,
+}: Tool5MasterReportProps) {
   const [state, setState] = useState<ComponentState>({ name: 'idle' });
+  const [landingPageUrl, setLandingPageUrl] = useState<string>('');
 
   // Funzione unica per avviare l'analisi completa
   const runFullAnalysis = async () => {
     setState({ name: 'analyzing' });
     try {
-      // Importa la Server Action dinamicamente
-      const { scrapeAndAnalyze } = await import('@/app/actions/scrape-actions');
-      
-      // Chiama la Server Action
+      // Chiama la funzione scrapeAndAnalyze passata tramite props
       const result = await scrapeAndAnalyze(landingPageUrl);
-
-      if (!result.success) {
-        throw new Error(result.error || "Errore sconosciuto durante l'analisi");
-      }
 
       if (!result.analysis) {
         throw new Error("Nessuna analisi ricevuta");
       }
 
-      // Usa l'analisi restituita direttamente dalla Server Action
+      // Usa l'analisi restituita direttamente dalla funzione
       const analysisContent = JSON.stringify(result.analysis, null, 2);
       if (!analysisContent) {
         throw new Error("Non è stato possibile interpretare la risposta dell'API.");
@@ -95,6 +131,14 @@ export function Tool5MasterReport({ landingPageUrl }: Tool5MasterReportProps) {
             <CardTitle>Pronto per l'analisi</CardTitle>
             <CardDescription>Premi il pulsante per avviare l'analisi della landing page.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <Input
+              value={landingPageUrl}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLandingPageUrl(e.target.value)}
+              placeholder="Inserisci l'URL della landing page"
+              className="mb-4"
+            />
+          </CardContent>
           <CardFooter>
             <Button onClick={runFullAnalysis}><Play className="mr-2 h-4 w-4" /> Avvia Analisi</Button>
           </CardFooter>

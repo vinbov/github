@@ -9,8 +9,10 @@ import { ToolDataForSeoAnalyzer } from '@/components/tools/tool-dataforseo-analy
 import { Tool3Scraper } from '@/components/tools/tool3-scraper/tool3-scraper';
 import { Tool4GSCAnalyzer } from '@/components/tools/tool4-gsc-analyzer/tool4-gsc-analyzer';
 import { Tool5MasterReport } from '@/components/tools/tool5-master-report/tool5-master-report';
+import { scrapeAndAnalyze } from '@/app/actions/scrape-actions'; // AGGIUNTO: Importo la server action qui
 import { Tool5LandingAnalyzer } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
-import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData, LandingPageWithAnalysis } from '@/lib/types';
+import type { ComparisonResult, PertinenceAnalysisResult, ScrapedAd, AdWithAngleAnalysis, GscParsedData, GscAnalyzedData } from '@/lib/types';
+import type { LandingPageWithAnalysis } from '@/components/tools/tool5-landing-analyzer/tool5-landing-analyzer';
 import type { DataForSEOKeywordMetrics } from '@/lib/dataforseo/types';
 
 
@@ -152,6 +154,20 @@ export default function HomePage() {
           {activeTool === 'tool5' && (
             <div id="tool5-container">
               <Tool5MasterReport 
+                scrapeAndAnalyze={async (url: string) => {
+                  const result = await scrapeAndAnalyze(url);
+                  // Controlliamo se il risultato è un oggetto di successo
+                  if (result && 'screenshotPath' in result && typeof result.screenshotPath === 'string') {
+                    // Se sì, lo restituiamo nel formato atteso
+                    return {
+                      screenshotPath: result.screenshotPath,
+                      analysis: result.analysis || { message: "Nessuna analisi disponibile." },
+                    };
+                  }
+                  // Se è un oggetto di errore o non valido, lanciamo un'eccezione
+                  const errorMessage = result && 'error' in result ? String(result.error) : "Errore sconosciuto durante lo scraping.";
+                  throw new Error(errorMessage);
+                }}
                 tool1Data={{
                   comparisonResultsCount: {
                     common: tool1ComparisonResults.filter(r => r.status === 'common').length,
