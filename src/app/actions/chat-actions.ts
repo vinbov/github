@@ -1,7 +1,7 @@
 "use server";
 import "server-only";
 
-import genkit from "@/ai/genkit";
+import { genkit } from "@/ai/genkit";
 import { gemini15Pro } from "@genkit-ai/googleai";
 
 const systemMessage = `
